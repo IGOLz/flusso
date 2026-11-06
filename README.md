@@ -13,8 +13,11 @@ Tieni premuto **fn**, parla, rilascia: il testo compare nel campo dove si trova 
   tocca `fn` oppure clicca ✓ per terminare. `Esc` o × annullano.
 - **Incolla dove c'è il focus**: il testo viene incollato nel campo attivo dell'app in primo piano.
   Se nessun campo di testo è attivo compare un riquadro con il pulsante **Copia** (scompare dopo 5 s).
-- **Avvio istantaneo**: il microfono resta pronto, quindi la registrazione parte in meno di 1 ms
-  e include anche gli ultimi 300 ms *prima* della pressione del tasto: le prime parole non vanno mai perse.
+- **Dizionario**: aggiungi nomi, marchi e termini tecnici; dopo ogni dettatura le parole che
+  suonano o si scrivono in modo simile vengono corrette (stesso algoritmo di Handy). Puoi anche
+  indicare come il modello scrive una parola per sostituirla sempre (es. "igol punto dev" → "igol.dev").
+- **Avvio istantaneo** (opzionale, Impostazioni › Microfono): il microfono resta pronto, quindi la
+  registrazione parte in meno di 1 ms e include anche gli ultimi 300 ms *prima* della pressione del tasto.
 - **Modello Parakeet Ultra** (quello consigliato da Handy): 25 lingue europee con riconoscimento
   automatico, italiano incluso. Si scarica dall'app (740 MB) e gira in locale su GPU (Metal):
   pochi secondi di parlato vengono trascritti in circa 40 ms.
@@ -28,8 +31,17 @@ Le scorciatoie si possono cambiare in **Impostazioni › Scorciatoie**.
 
 ## Requisiti
 
-- macOS 26 o successivo, Mac con Apple Silicon
+- macOS 14 Sonoma o successivo (Liquid Glass su macOS 26, aspetto standard sulle versioni precedenti)
+- Apple Silicon (GPU Metal) o Intel (CPU)
 - Permessi: **Microfono** e **Accessibilità** (per la scorciatoia globale e per incollare)
+
+## Condividere l'app
+
+```bash
+./scripts/release.sh   # build universale, firmata Developer ID e notarizzata → build/release/Flusso-<versione>.dmg
+```
+
+Chi riceve il DMG lo apre, trascina Flusso in Applicazioni e lo avvia normalmente.
 
 ## Compilare e installare
 

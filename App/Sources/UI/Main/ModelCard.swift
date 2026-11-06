@@ -78,7 +78,7 @@ struct ModelActions: View {
                     } label: {
                         Label("Scarica", systemImage: "arrow.down")
                     }
-                    .buttonStyle(.glassProminent)
+                    .glassProminentButtonStyle()
                 }
 
             case .downloading(let progress, let received, let total):
@@ -92,7 +92,7 @@ struct ModelActions: View {
                             .monospacedDigit()
                         Spacer()
                         Button("Annulla") { manager.cancelDownload(model) }
-                            .buttonStyle(.glass)
+                            .glassButtonStyle()
                     }
                     .font(.callout)
                     .foregroundStyle(.secondary)
@@ -120,9 +120,9 @@ struct ModelActions: View {
                             Text("Modello in uso").foregroundStyle(.secondary).font(.callout)
                         } else {
                             Button("Elimina", role: .destructive) { confirmDelete = true }
-                                .buttonStyle(.glass)
+                                .glassButtonStyle()
                             Button("Usa questo modello") { AppController.shared.selectModel(model) }
-                                .buttonStyle(.glassProminent)
+                                .glassProminentButtonStyle()
                         }
                     }
                 }
@@ -139,7 +139,7 @@ struct ModelActions: View {
                     } label: {
                         Label("Riprova", systemImage: "arrow.clockwise")
                     }
-                    .buttonStyle(.glassProminent)
+                    .glassProminentButtonStyle()
                 }
             }
         }

@@ -2,7 +2,7 @@ import AVFoundation
 import AudioToolbox
 import CoreAudio
 import Foundation
-import Synchronization
+import os
 
 /// Captures the microphone as 16 kHz mono float PCM.
 ///
@@ -36,7 +36,7 @@ nonisolated final class AudioRecorder: @unchecked Sendable {
         var nextID: UInt64 = 0
     }
 
-    private let shared = Mutex(Shared())
+    private let shared = OSAllocatedUnfairLock(initialState: Shared())
     private let levels: AudioLevelMeter
     private let control = DispatchQueue(label: "dev.igol.flusso.audio-control", qos: .userInteractive)
 
@@ -380,9 +380,9 @@ nonisolated final class AudioRecorder: @unchecked Sendable {
         }
 
         let maxSamples = Int(Self.maxCaptureSeconds * Self.sampleRate)
-        var completed: [(CheckedContinuation<[Float], Never>, [Float])] = []
-        var anyDone = false
-        shared.withLock { s in
+        let (completed, anyDone) = shared.withLock { s -> ([(CheckedContinuation<[Float], Never>, [Float])], Bool) in
+            var completed: [(CheckedContinuation<[Float], Never>, [Float])] = []
+            var anyDone = false
             if s.active != nil, s.active!.count < maxSamples {
                 s.active!.append(contentsOf: samples)
             }
@@ -410,6 +410,7 @@ nonisolated final class AudioRecorder: @unchecked Sendable {
                 s.ringHead = (s.ringHead + 1) % capacity
             }
             s.ringFilled = min(capacity, s.ringFilled + samples.count)
+            return (completed, anyDone)
         }
         for (continuation, captured) in completed {
             continuation.resume(returning: captured)

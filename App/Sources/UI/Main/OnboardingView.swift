@@ -78,8 +78,7 @@ struct OnboardingView: View {
             .ignoresSafeArea()
         }
         .background(WindowTitle(title: "Flusso"))
-        .toolbar(removing: .title)
-        .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
+        .hiddenWindowToolbar()
     }
 
     @ViewBuilder
@@ -119,7 +118,7 @@ struct OnboardingView: View {
         HStack(spacing: 12) {
             if step != .welcome {
                 Button("Indietro") { go(-1) }
-                    .buttonStyle(.glass)
+                    .glassButtonStyle()
                     .keyboardShortcut(.cancelAction)
             }
             Spacer()
@@ -139,7 +138,7 @@ struct OnboardingView: View {
             } label: {
                 Text(continueTitle).frame(minWidth: 90)
             }
-            .buttonStyle(.glassProminent)
+            .glassProminentButtonStyle()
             .keyboardShortcut(step == .tryIt ? nil : .defaultAction)
             .disabled(!canContinue)
         }
@@ -206,7 +205,7 @@ private struct GlassCard<Content: View>: View {
 
     var body: some View {
         VStack(spacing: 0) { content }
-            .glassEffect(.regular, in: .rect(cornerRadius: 20, style: .continuous))
+            .adaptiveGlass(cornerRadius: 20)
     }
 }
 
@@ -330,7 +329,7 @@ private struct PermissionRow<Action: View>: View {
             if granted {
                 GrantedLabel().transition(.scale.combined(with: .opacity))
             } else {
-                action.buttonStyle(.glass)
+                action.glassButtonStyle()
             }
         }
         .padding(16)

@@ -1,7 +1,7 @@
 @preconcurrency import AppKit
 import Carbon.HIToolbox
 @preconcurrency import CoreGraphics
-import Synchronization
+import os
 
 nonisolated enum HotkeyEvent: Sendable {
     /// The hold (push-to-talk) shortcut went down.
@@ -32,9 +32,9 @@ nonisolated final class HotkeyMonitor: @unchecked Sendable {
         var dictating = false
     }
 
-    private let config = Mutex(Config())
+    private let config = OSAllocatedUnfairLock(initialState: Config())
     /// Live keyboard state for the UI (shortcut key caps light up).
-    private let keyboard = Mutex(KeyboardSnapshot())
+    private let keyboard = OSAllocatedUnfairLock(initialState: KeyboardSnapshot())
     /// Called on the event-tap thread. Keep it fast.
     private let handler: @Sendable (HotkeyEvent, TimeInterval) -> Void
 

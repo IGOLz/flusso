@@ -1,5 +1,5 @@
 import Foundation
-import Synchronization
+import os
 
 /// Thread-safe history of recent microphone levels for the waveform widget.
 /// Written from the audio thread, read by the UI at display rate.
@@ -10,7 +10,7 @@ nonisolated final class AudioLevelMeter: Sendable {
     }
 
     nonisolated static let capacity = 64
-    private let state = Mutex(State())
+    private let state = OSAllocatedUnfairLock(initialState: State())
 
     nonisolated init() {}
 

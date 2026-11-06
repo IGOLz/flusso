@@ -97,7 +97,7 @@ struct HomeView: View {
                             }
                             Spacer()
                             TextCopyButton(text: latest.text, title: "Copia")
-                                .buttonStyle(.glass)
+                                .glassButtonStyle()
                         }
                         .font(.callout)
                         .foregroundStyle(.secondary)
@@ -175,12 +175,12 @@ struct HomeView: View {
         switch controller.engineStatus {
         case .noModel:
             Button("Scarica un modello") { selection = .models }
-                .buttonStyle(.glassProminent)
+                .glassProminentButtonStyle()
         case .failed:
             Button("Riprova") {
                 if let selectedModel { controller.selectModel(selectedModel) }
             }
-            .buttonStyle(.glass)
+            .glassButtonStyle()
         default:
             EmptyView()
         }

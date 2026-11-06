@@ -19,6 +19,9 @@ final class AppSettings {
     /// drives filler-word cleanup.
     var spokenLanguages: [String] { didSet { save(spokenLanguages, "spokenLanguages") } }
 
+    /// Words to always spell as written (see `CustomDictionary`).
+    var dictionary: [DictionaryEntry] { didSet { save(dictionary, "dictionary") } }
+
     var selectedModelID: String { didSet { defaults.set(selectedModelID, forKey: "selectedModelID") } }
 
     /// Keep the microphone stream open so recording starts instantly and the
@@ -53,7 +56,7 @@ final class AppSettings {
     private init() {
         defaults.register(defaults: [
             "selectedModelID": ModelCatalog.defaultModelID,
-            "instantStart": true,
+            "instantStart": false,
             "playSounds": true,
             "restoreClipboard": true,
             "removeFillerWords": true,
@@ -62,6 +65,7 @@ final class AppSettings {
         holdShortcut = Self.load("holdShortcut", from: defaults) ?? .holdDefault
         lockShortcut = Self.load("lockShortcut", from: defaults) ?? .lockDefault
         spokenLanguages = Self.load("spokenLanguages", from: defaults) ?? ["it"]
+        dictionary = Self.load("dictionary", from: defaults) ?? []
         selectedModelID = defaults.string(forKey: "selectedModelID") ?? ModelCatalog.defaultModelID
         instantStart = defaults.bool(forKey: "instantStart")
         microphoneUID = defaults.string(forKey: "microphoneUID")

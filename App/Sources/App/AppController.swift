@@ -1,6 +1,6 @@
 import AppKit
 import Observation
-import Synchronization
+import os
 
 nonisolated enum RecordingMode: Equatable, Sendable {
     /// Push-to-talk: recording while the hold shortcut is pressed.
@@ -24,10 +24,10 @@ enum EngineStatus: Equatable {
 
 /// Thread-safe flag read by the event-tap thread before starting a capture.
 nonisolated private final class DictationGate: Sendable {
-    let canStart = Atomic<Bool>(false)
+    let canStart = AtomicFlag()
     /// The shortcuts page is open: shortcuts light up there but don't dictate.
-    let previewing = Atomic<Bool>(false)
-    let preRoll = Atomic<Bool>(false)
+    let previewing = AtomicFlag()
+    let preRoll = AtomicFlag()
 }
 
 /// Orchestrates shortcut → recording → transcription → paste.
@@ -39,7 +39,7 @@ final class AppController {
     private(set) var engineStatus: EngineStatus = .noModel {
         didSet {
             let usable = engineStatus == .ready || engineStatus == .loading
-            gate.canStart.store(usable, ordering: .relaxed)
+            gate.canStart.set(usable)
         }
     }
 
@@ -63,7 +63,7 @@ final class AppController {
 
     private func updatePreviewGate() {
         let effective = shortcutPreview && NSApp.isActive
-        gate.previewing.store(effective, ordering: .relaxed)
+        gate.previewing.set(effective)
         if effective { cancelRecording() }
     }
 
@@ -104,15 +104,15 @@ final class AppController {
         // Runs on the event-tap thread: start capturing *before* hopping to
         // the main thread so a busy UI can never delay the recording.
         hotkeys = HotkeyMonitor { event, time in
-            if gate.previewing.load(ordering: .relaxed) { return }
+            if gate.previewing.value { return }
             switch event {
             case .holdDown:
-                let didStart = gate.canStart.load(ordering: .relaxed)
-                    && recorder.beginCapture(preRoll: gate.preRoll.load(ordering: .relaxed) ? 0.3 : 0)
+                let didStart = gate.canStart.value
+                    && recorder.beginCapture(preRoll: gate.preRoll.value ? 0.3 : 0)
                 DispatchQueue.main.async { AppController.shared.handleHoldDown(didStart: didStart, at: time) }
             case .lockToggle:
-                let didStart = gate.canStart.load(ordering: .relaxed) && !recorder.isCapturing
-                    && recorder.beginCapture(preRoll: gate.preRoll.load(ordering: .relaxed) ? 0.3 : 0)
+                let didStart = gate.canStart.value && !recorder.isCapturing
+                    && recorder.beginCapture(preRoll: gate.preRoll.value ? 0.3 : 0)
                 DispatchQueue.main.async { AppController.shared.handleLockToggle(didStart: didStart, at: time) }
             case .holdUp:
                 DispatchQueue.main.async { AppController.shared.handleHoldUp(at: time) }
@@ -198,7 +198,7 @@ final class AppController {
     // MARK: - Hotkey handling (main thread)
 
     private func handleHoldDown(didStart: Bool, at time: TimeInterval) {
-        if didStart && (hotkeysSuspended || gate.previewing.load(ordering: .relaxed)) {
+        if didStart && (hotkeysSuspended || gate.previewing.value) {
             recorder.cancelCapture()
             return
         }
@@ -210,7 +210,7 @@ final class AppController {
         case .recording(.locked):
             lockedHoldDownAt = time
             lockToggledSinceHoldDown = false
-        case .idle where !gate.canStart.load(ordering: .relaxed):
+        case .idle where !gate.canStart.value:
             notifyNoModel()
         default:
             break
@@ -238,7 +238,7 @@ final class AppController {
 
     private func handleLockToggle(didStart: Bool, at time: TimeInterval) {
         lockToggledSinceHoldDown = true
-        if didStart && (hotkeysSuspended || gate.previewing.load(ordering: .relaxed)) {
+        if didStart && (hotkeysSuspended || gate.previewing.value) {
             recorder.cancelCapture()
             return
         }
@@ -252,7 +252,7 @@ final class AppController {
             OverlayController.shared.showRecording(mode: .locked)
         case .recording(.locked):
             finishRecording()
-        case .idle where !gate.canStart.load(ordering: .relaxed):
+        case .idle where !gate.canStart.value:
             notifyNoModel()
         default:
             break
@@ -321,7 +321,11 @@ final class AppController {
         }
         do {
             let raw = try await engine.transcribe(samples, language: nil)
-            let text = TextCleanup.clean(raw, removeFillers: settings.removeFillerWords)
+            let cleaned = TextCleanup.clean(raw, removeFillers: settings.removeFillerWords)
+            let entries = settings.dictionary
+            let text = entries.isEmpty ? cleaned : await Task.detached(priority: .userInitiated) {
+                CustomDictionary.apply(cleaned, entries: entries)
+            }.value
             guard !text.isEmpty else {
                 finishUI(id: id, notPasted: nil)
                 return
@@ -364,7 +368,7 @@ final class AppController {
     private func configureRecorder() {
         let micGranted = permissions.microphone == .granted
         let warm = settings.instantStart && micGranted
-        gate.preRoll.store(warm, ordering: .relaxed)
+        gate.preRoll.set(warm)
         recorder.configure(warm: warm, deviceUID: settings.microphoneUID)
     }
 

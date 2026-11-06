@@ -27,7 +27,7 @@ struct MainView: View {
 }
 
 enum SidebarPage: String, Hashable, CaseIterable, Identifiable {
-    case home, history, shortcuts, microphone, languages, models, general
+    case home, history, dictionary, shortcuts, microphone, languages, models, general
 
     var id: String { rawValue }
 
@@ -35,6 +35,7 @@ enum SidebarPage: String, Hashable, CaseIterable, Identifiable {
         switch self {
         case .home: "Home"
         case .history: "Cronologia"
+        case .dictionary: "Dizionario"
         case .shortcuts: "Scorciatoie"
         case .microphone: "Microfono"
         case .languages: "Lingue"
@@ -47,6 +48,7 @@ enum SidebarPage: String, Hashable, CaseIterable, Identifiable {
         switch self {
         case .home: "house"
         case .history: "clock.arrow.circlepath"
+        case .dictionary: "character.book.closed"
         case .shortcuts: "keyboard"
         case .microphone: "mic"
         case .languages: "globe"
@@ -55,7 +57,7 @@ enum SidebarPage: String, Hashable, CaseIterable, Identifiable {
         }
     }
 
-    static let main: [SidebarPage] = [.home, .history]
+    static let main: [SidebarPage] = [.home, .history, .dictionary]
     static let settings: [SidebarPage] = [.shortcuts, .microphone, .languages, .models, .general]
 }
 
@@ -101,6 +103,7 @@ struct MainSplitView: View {
         switch page {
         case .home: HomeView(selection: $selection)
         case .history: HistoryView()
+        case .dictionary: DictionaryView()
         case .shortcuts: ShortcutsSettingsView()
         case .microphone: MicrophoneSettingsView()
         case .languages: LanguagesSettingsView()
