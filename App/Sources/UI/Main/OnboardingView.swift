@@ -33,14 +33,33 @@ struct OnboardingView: View {
                 .padding(.top, 6)
 
             GeometryReader { geo in
-                ScrollView {
-                    page
-                        .frame(maxWidth: 540)
-                        .padding(.horizontal, 32)
-                        .padding(.vertical, 20)
-                        .frame(maxWidth: .infinity, minHeight: geo.size.height)
+                if step == .shortcuts {
+                    // Fixed layout: this page doesn't scroll. Only if the
+                    // window is shrunk below what it needs, fall back to
+                    // scrolling rather than clipping.
+                    ViewThatFits(in: .vertical) {
+                        page
+                            .frame(maxWidth: 540)
+                            .padding(.horizontal, 32)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        ScrollView {
+                            page
+                                .frame(maxWidth: 540)
+                                .padding(.horizontal, 32)
+                                .padding(.vertical, 12)
+                                .frame(maxWidth: .infinity)
+                        }
+                    }
+                } else {
+                    ScrollView {
+                        page
+                            .frame(maxWidth: 540)
+                            .padding(.horizontal, 32)
+                            .padding(.vertical, 20)
+                            .frame(maxWidth: .infinity, minHeight: geo.size.height)
+                    }
+                    .scrollBounceBehavior(.basedOnSize)
                 }
-                .scrollBounceBehavior(.basedOnSize)
             }
             .id(step)
             .transition(.asymmetric(
@@ -161,14 +180,15 @@ private struct PageHeader: View {
     let systemImage: String
     let title: String
     let subtitle: String
+    var compact = false
 
     var body: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: compact ? 8 : 10) {
             Image(systemName: systemImage)
-                .font(.system(size: 44, weight: .regular))
+                .font(.system(size: compact ? 36 : 44, weight: .regular))
                 .foregroundStyle(.tint)
                 .symbolRenderingMode(.hierarchical)
-                .frame(height: 56)
+                .frame(height: compact ? 44 : 56)
             Text(title)
                 .font(.system(size: 28, weight: .bold))
             Text(subtitle)
@@ -347,10 +367,11 @@ private struct ShortcutsPage: View {
     private var settings = AppSettings.shared
 
     var body: some View {
-        VStack(spacing: 26) {
+        VStack(spacing: 18) {
             PageHeader(systemImage: "keyboard.fill",
                        title: "Le tue scorciatoie",
-                       subtitle: "Due modi per dettare. Fai clic su una scorciatoia per cambiarla.")
+                       subtitle: "Prova a premerle: i tasti si illuminano. Fai clic su una scorciatoia per cambiarla.",
+                       compact: true)
             GlassCard {
                 ShortcutRow(title: "Detta",
                             detail: "Tieni premuto \(settings.holdShortcut.displayString) per dettare, rilascia per incollare.",
@@ -360,10 +381,23 @@ private struct ShortcutsPage: View {
                             detail: "\(settings.lockShortcut.displayString) per la modalità mani libere (premi di nuovo per terminare).",
                             kind: .lock)
             }
-            FnKeyTip()
-                .padding(16)
-                .card()
+            if usesFn {
+                FnKeyTip()
+                    .padding(14)
+                    .card()
+            }
         }
+        // Here the shortcuts only light up; they don't start a dictation.
+        .onAppear { AppController.shared.shortcutPreview = true }
+        .onDisappear { AppController.shared.shortcutPreview = false }
+        // The window is retained when closed: re-arm when it comes back.
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
+            AppController.shared.shortcutPreview = true
+        }
+    }
+
+    private var usesFn: Bool {
+        settings.holdShortcut.modifiers.contains(.function) || settings.lockShortcut.modifiers.contains(.function)
     }
 }
 

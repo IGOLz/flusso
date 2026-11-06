@@ -68,23 +68,48 @@ nonisolated struct ModifierKeys: OptionSet, Codable, Hashable, Sendable {
 
     /// Human readable, in Apple's canonical order (fn ⌃ ⌥ ⇧ ⌘).
     func displayParts(sideSpecific: Bool) -> [String] {
-        var parts: [String] = []
+        capParts(sideSpecific: sideSpecific).map(\.label)
+    }
+
+    /// One key cap per modifier, each with the keys that light it up.
+    func capParts(sideSpecific: Bool) -> [ShortcutCapPart] {
+        var parts: [ShortcutCapPart] = []
         func add(_ left: ModifierKeys, _ right: ModifierKeys, _ symbol: String) {
             let l = contains(left), r = contains(right)
             guard l || r else { return }
             if sideSpecific && !(l && r) {
-                parts.append(l ? "\(symbol) sinistro" : "\(symbol) destro")
+                parts.append(ShortcutCapPart(label: l ? "\(symbol) sinistro" : "\(symbol) destro",
+                                             anyOf: l ? left : right, keyCode: nil))
             } else {
-                parts.append(symbol)
+                parts.append(ShortcutCapPart(label: symbol, anyOf: [left, right], keyCode: nil))
             }
         }
-        if contains(.function) { parts.append("fn") }
+        if contains(.function) { parts.append(ShortcutCapPart(label: "fn", anyOf: .function, keyCode: nil)) }
         add(.leftControl, .rightControl, "⌃")
         add(.leftOption, .rightOption, "⌥")
         add(.leftShift, .rightShift, "⇧")
         add(.leftCommand, .rightCommand, "⌘")
         return parts
     }
+}
+
+/// One key cap of a shortcut: a modifier (lit when any of `anyOf` is held)
+/// or a regular key (lit while `keyCode` is down).
+nonisolated struct ShortcutCapPart: Hashable, Sendable {
+    let label: String
+    let anyOf: ModifierKeys
+    let keyCode: UInt16?
+
+    func isPressed(_ keyboard: KeyboardSnapshot) -> Bool {
+        if let keyCode { return keyboard.keysDown.contains(keyCode) }
+        return !keyboard.held.intersection(anyOf).isEmpty
+    }
+}
+
+/// Physical keyboard state as seen by the event tap.
+nonisolated struct KeyboardSnapshot: Equatable, Sendable {
+    var held: ModifierKeys = []
+    var keysDown: Set<UInt16> = []
 }
 
 /// A global shortcut: either modifier-only (e.g. `fn`, `⌥ destro`) or a key
@@ -119,11 +144,25 @@ nonisolated struct Shortcut: Codable, Hashable, Sendable {
     }
 
     /// Individual key caps for rendering (e.g. ["fn", "Spazio"]).
-    var keyCaps: [String] {
+    var keyCaps: [String] { capParts.map(\.label) }
+
+    /// Key caps with what lights each of them up.
+    var capParts: [ShortcutCapPart] {
         if isEmpty { return [] }
-        var parts = modifiers.displayParts(sideSpecific: isModifierOnly)
-        if let keyCode { parts.append(Shortcut.keyName(for: keyCode)) }
+        var parts = modifiers.capParts(sideSpecific: isModifierOnly)
+        if let keyCode {
+            parts.append(ShortcutCapPart(label: Shortcut.keyName(for: keyCode), anyOf: [], keyCode: keyCode))
+        }
         return parts
+    }
+
+    /// Whether the whole shortcut is currently held.
+    func isFullyPressed(_ keyboard: KeyboardSnapshot) -> Bool {
+        guard !isEmpty else { return false }
+        if let keyCode {
+            return keyboard.keysDown.contains(keyCode) && keyboard.held.sideAgnostic == modifiers.sideAgnostic
+        }
+        return keyboard.held == modifiers && keyboard.keysDown.isEmpty
     }
 
     static func keyName(for keyCode: UInt16) -> String {

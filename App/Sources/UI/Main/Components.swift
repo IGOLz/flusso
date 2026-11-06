@@ -6,6 +6,8 @@ import SwiftUI
 /// A single keyboard key, drawn like a physical key cap.
 struct KeyCap: View {
     let label: String
+    /// Lit while the physical key is held.
+    var isPressed = false
     @Environment(\.controlSize) private var controlSize
 
     private var isLarge: Bool { controlSize == .large || controlSize == .extraLarge }
@@ -13,20 +15,76 @@ struct KeyCap: View {
     var body: some View {
         Text(label)
             .font(.system(isLarge ? .title3 : .callout, design: .rounded).weight(.medium))
-            .foregroundStyle(.primary)
+            .foregroundStyle(isPressed ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
             .lineLimit(1)
             .fixedSize()
             .padding(.horizontal, isLarge ? 11 : 7)
             .frame(minWidth: isLarge ? 36 : 26, minHeight: isLarge ? 34 : 24)
             .background {
                 RoundedRectangle(cornerRadius: isLarge ? 8 : 6, style: .continuous)
-                    .fill(.background)
-                    .shadow(color: .black.opacity(0.22), radius: 0, x: 0, y: 1)
+                    .fill(isPressed ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.background))
+                    .shadow(color: isPressed ? Color.accentColor.opacity(0.55) : .black.opacity(0.22),
+                            radius: isPressed ? 6 : 0, x: 0, y: isPressed ? 0 : 1)
             }
             .overlay {
                 RoundedRectangle(cornerRadius: isLarge ? 8 : 6, style: .continuous)
-                    .strokeBorder(.separator, lineWidth: 1)
+                    .strokeBorder(isPressed ? AnyShapeStyle(Color.white.opacity(0.35)) : AnyShapeStyle(.separator),
+                                  lineWidth: 1)
             }
+            // Pressed keys sink slightly, like a real key.
+            .offset(y: isPressed ? 1 : 0)
+            .animation(.snappy(duration: 0.12), value: isPressed)
+    }
+}
+
+/// Key caps of a shortcut that light up live as the user presses the keys
+/// (anywhere, no click needed). `onFullMatch` reports when the whole
+/// combination is held.
+struct LiveShortcutCaps: View {
+    let shortcut: Shortcut
+    var onFullMatch: (Bool) -> Void = { _ in }
+
+    @State private var keyboard = KeyboardSnapshot()
+    @State private var poller: Timer?
+
+    var body: some View {
+        let parts = shortcut.capParts
+        HStack(spacing: 4) {
+            if parts.isEmpty {
+                Text("Nessuna").foregroundStyle(.secondary)
+            }
+            ForEach(Array(parts.enumerated()), id: \.offset) { _, part in
+                KeyCap(label: part.label, isPressed: part.isPressed(keyboard))
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(shortcut.keyCaps.joined(separator: " + "))
+        .onAppear {
+            keyboard = AppController.shared.keyboardSnapshot
+            onFullMatch(shortcut.isFullyPressed(keyboard))
+            startPolling()
+        }
+        .onDisappear(perform: stopPolling)
+        .onChange(of: keyboard) { _, new in onFullMatch(shortcut.isFullyPressed(new)) }
+        .onChange(of: shortcut) { _, new in onFullMatch(new.isFullyPressed(keyboard)) }
+    }
+
+    private func startPolling() {
+        guard poller == nil else { return }
+        // Reading a mutex-guarded snapshot at display rate is cheap.
+        let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { _ in
+            MainActor.assumeIsolated {
+                let now = AppController.shared.keyboardSnapshot
+                if now != keyboard { keyboard = now }
+            }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        poller = timer
+    }
+
+    private func stopPolling() {
+        poller?.invalidate()
+        poller = nil
     }
 }
 

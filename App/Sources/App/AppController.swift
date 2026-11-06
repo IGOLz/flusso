@@ -25,6 +25,8 @@ enum EngineStatus: Equatable {
 /// Thread-safe flag read by the event-tap thread before starting a capture.
 nonisolated private final class DictationGate: Sendable {
     let canStart = Atomic<Bool>(false)
+    /// The shortcuts page is open: shortcuts light up there but don't dictate.
+    let previewing = Atomic<Bool>(false)
     let preRoll = Atomic<Bool>(false)
 }
 
@@ -50,6 +52,23 @@ final class AppController {
             hotkeys.setSuspended(hotkeysSuspended)
         }
     }
+
+    /// While true, shortcuts are still detected (and their keys swallowed)
+    /// but don't start a dictation: used by the onboarding shortcuts page.
+    /// Only effective while Flusso is the active app, so switching to
+    /// another app to dictate always works.
+    var shortcutPreview = false {
+        didSet { updatePreviewGate() }
+    }
+
+    private func updatePreviewGate() {
+        let effective = shortcutPreview && NSApp.isActive
+        gate.previewing.store(effective, ordering: .relaxed)
+        if effective { cancelRecording() }
+    }
+
+    /// Physical keyboard state seen by the global shortcut monitor.
+    var keyboardSnapshot: KeyboardSnapshot { hotkeys.keyboardSnapshot }
 
     /// Live microphone levels for the waveform.
     @ObservationIgnored let levels: AudioLevelMeter
@@ -85,6 +104,7 @@ final class AppController {
         // Runs on the event-tap thread: start capturing *before* hopping to
         // the main thread so a busy UI can never delay the recording.
         hotkeys = HotkeyMonitor { event, time in
+            if gate.previewing.load(ordering: .relaxed) { return }
             switch event {
             case .holdDown:
                 let didStart = gate.canStart.load(ordering: .relaxed)
@@ -124,6 +144,12 @@ final class AppController {
 
         observeSettings()
         observePermissions()
+
+        for name in [NSApplication.didBecomeActiveNotification, NSApplication.didResignActiveNotification] {
+            NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { _ in
+                MainActor.assumeIsolated { AppController.shared.updatePreviewGate() }
+            }
+        }
 
         let center = NSWorkspace.shared.notificationCenter
         center.addObserver(forName: NSWorkspace.willSleepNotification, object: nil, queue: .main) { [recorder] _ in
@@ -172,7 +198,7 @@ final class AppController {
     // MARK: - Hotkey handling (main thread)
 
     private func handleHoldDown(didStart: Bool, at time: TimeInterval) {
-        if didStart && hotkeysSuspended {
+        if didStart && (hotkeysSuspended || gate.previewing.load(ordering: .relaxed)) {
             recorder.cancelCapture()
             return
         }
@@ -212,7 +238,7 @@ final class AppController {
 
     private func handleLockToggle(didStart: Bool, at time: TimeInterval) {
         lockToggledSinceHoldDown = true
-        if didStart && hotkeysSuspended {
+        if didStart && (hotkeysSuspended || gate.previewing.load(ordering: .relaxed)) {
             recorder.cancelCapture()
             return
         }

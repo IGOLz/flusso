@@ -23,6 +23,8 @@ struct ShortcutRecorder: View {
     let kind: ShortcutKind
     @Bindable private var settings = AppSettings.shared
     @State private var capture = ShortcutCapture()
+    /// The whole combination is physically held right now.
+    @State private var fullyPressed = false
 
     init(_ kind: ShortcutKind) { self.kind = kind }
 
@@ -72,22 +74,40 @@ struct ShortcutRecorder: View {
                     .foregroundStyle(.tint)
                     .font(.callout.weight(.medium))
             } else {
-                KeyCaps(shortcut)
+                LiveShortcutCaps(shortcut: shortcut) { fullyPressed = $0 }
+                // Space is always reserved so the layout doesn't shift.
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+                    .opacity(fullyPressed ? 1 : 0)
+                    .scaleEffect(fullyPressed ? 1 : 0.5)
             }
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 5)
         .frame(minWidth: 140, minHeight: 34)
-        .background(capture.isCapturing ? AnyShapeStyle(Color.accentColor.opacity(0.12)) : AnyShapeStyle(.fill.quaternary),
-                    in: .rect(cornerRadius: 9, style: .continuous))
+        .background(recorderFill, in: .rect(cornerRadius: 9, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 9, style: .continuous)
-                .strokeBorder(capture.isCapturing ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.clear), lineWidth: 1.5)
+                .strokeBorder(recorderStroke, lineWidth: 1.5)
         }
+        .animation(.snappy(duration: 0.15), value: fullyPressed)
         .contentShape(.rect)
     }
 
+    private var recorderFill: AnyShapeStyle {
+        if capture.isCapturing { return AnyShapeStyle(Color.accentColor.opacity(0.12)) }
+        if fullyPressed { return AnyShapeStyle(Color.green.opacity(0.15)) }
+        return AnyShapeStyle(.fill.quaternary)
+    }
+
+    private var recorderStroke: AnyShapeStyle {
+        if capture.isCapturing { return AnyShapeStyle(Color.accentColor) }
+        if fullyPressed { return AnyShapeStyle(Color.green) }
+        return AnyShapeStyle(.clear)
+    }
+
     private func start() {
+        fullyPressed = false
         capture.start { candidate in
             if let error = validate(candidate) { return error }
             switch kind {

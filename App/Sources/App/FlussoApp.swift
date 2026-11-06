@@ -105,6 +105,7 @@ final class MainWindowController: NSObject, NSWindowDelegate {
     }
 
     func windowWillClose(_ notification: Notification) {
+        AppController.shared.shortcutPreview = false
         NSApp.setActivationPolicy(.accessory)
     }
 }

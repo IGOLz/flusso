@@ -33,6 +33,8 @@ nonisolated final class HotkeyMonitor: @unchecked Sendable {
     }
 
     private let config = Mutex(Config())
+    /// Live keyboard state for the UI (shortcut key caps light up).
+    private let keyboard = Mutex(KeyboardSnapshot())
     /// Called on the event-tap thread. Keep it fast.
     private let handler: @Sendable (HotkeyEvent, TimeInterval) -> Void
 
@@ -67,6 +69,20 @@ nonisolated final class HotkeyMonitor: @unchecked Sendable {
 
     /// Only read/written on the main actor (start is called from there).
     var isRunning: Bool { tap != nil }
+
+    /// What is physically held right now (as seen by the tap).
+    var keyboardSnapshot: KeyboardSnapshot { keyboard.withLock { $0 } }
+
+    private func publishKeyboard() {
+        let held = self.held
+        keyboard.withLock { $0.held = held }
+    }
+
+    private func setKey(_ keyCode: UInt16, down: Bool) {
+        keyboard.withLock { s in
+            if down { s.keysDown.insert(keyCode) } else { s.keysDown.remove(keyCode) }
+        }
+    }
 
     /// Starts the event tap thread. Returns false if the tap could not be
     /// created (Accessibility not granted yet).
@@ -119,6 +135,8 @@ nonisolated final class HotkeyMonitor: @unchecked Sendable {
             if let tapForThread { CGEvent.tapEnable(tap: tapForThread, enable: true) }
             Log.hotkey.info("Event tap re-enabled")
             reconcileWithPhysicalState(config.withLock { $0 })
+            publishKeyboard()
+            keyboard.withLock { $0.keysDown = $0.keysDown.filter { CGEventSource.keyState(.combinedSessionState, key: CGKeyCode($0)) } }
             return pass
         }
 
@@ -135,8 +153,12 @@ nonisolated final class HotkeyMonitor: @unchecked Sendable {
 
         let keyCode = UInt16(event.getIntegerValueField(.keyboardEventKeycode))
 
+        if type == .keyDown { setKey(keyCode, down: true) }
+        if type == .keyUp { setKey(keyCode, down: false) }
+
         if type == .flagsChanged {
             held = ModifierKeys(eventFlags: event.flags.rawValue)
+            publishKeyboard()
             guard !cfg.suspended else { return pass }
             handleModifiers(cfg)
             return pass
