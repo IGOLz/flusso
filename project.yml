@@ -8,8 +8,8 @@ options:
 
 settings:
   base:
-    MARKETING_VERSION: "0.2.0"
-    CURRENT_PROJECT_VERSION: "2"
+    MARKETING_VERSION: "0.3.0"
+    CURRENT_PROJECT_VERSION: "3"
     SWIFT_VERSION: "6.0"
     SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
     SWIFT_APPROACHABLE_CONCURRENCY: YES
@@ -22,6 +22,11 @@ settings:
     ENABLE_HARDENED_RUNTIME: YES
     OTHER_CODE_SIGN_FLAGS: --timestamp
     DEAD_CODE_STRIPPING: YES
+
+packages:
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    from: 2.10.1
 
 targets:
   Flusso:
@@ -48,11 +53,13 @@ targets:
           - -lggml-base
           - -lc++
         COMBINE_HIDPI_IMAGES: YES
+        SPARKLE_FEED_URL: https://github.com/IGOLz/flusso/releases/latest/download/appcast.xml
       configs:
         Release:
           # Notarization rejects the debugger entitlement.
           CODE_SIGN_INJECT_BASE_ENTITLEMENTS: NO
     dependencies:
+      - package: Sparkle
       - sdk: Metal.framework
       - sdk: MetalKit.framework
       - sdk: Accelerate.framework

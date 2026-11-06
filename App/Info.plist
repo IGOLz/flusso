@@ -30,6 +30,13 @@
 	<string>Flusso — dettatura vocale locale e gratuita.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Flusso usa il microfono per trascrivere la tua voce in testo, interamente sul tuo Mac.</string>
+	<!-- In-app updates with Sparkle (feed: appcast.xml of the latest GitHub release). -->
+	<key>SUFeedURL</key>
+	<string>$(SPARKLE_FEED_URL)</string>
+	<key>SUPublicEDKey</key>
+	<string>scKrtpmMLiB4fMerYd81b/TZ8Q5WJVEz1OPG627zYzA=</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
 	<key>NSAppleEventsUsageDescription</key>
 	<string>Flusso incolla il testo trascritto nell'app che stai usando.</string>
 </dict>

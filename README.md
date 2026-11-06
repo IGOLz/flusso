@@ -35,13 +35,22 @@ Le scorciatoie si possono cambiare in **Impostazioni › Scorciatoie**.
 - Apple Silicon (GPU Metal) o Intel (CPU)
 - Permessi: **Microfono** e **Accessibilità** (per la scorciatoia globale e per incollare)
 
-## Condividere l'app
+## Scaricare
+
+Scarica l'ultima versione da [Releases](https://github.com/IGOLz/flusso/releases/latest)
+(`Flusso-<versione>.dmg`), aprila e trascina Flusso in Applicazioni. È firmata con Developer ID e
+notarizzata da Apple. Gli aggiornamenti successivi arrivano direttamente nell'app
+(Generali › Aggiornamenti), con lo stesso sistema Sparkle di ImmichGallery.
+
+## Pubblicare una versione
 
 ```bash
-./scripts/release.sh   # build universale, firmata Developer ID e notarizzata → build/release/Flusso-<versione>.dmg
+# alza MARKETING_VERSION e CURRENT_PROJECT_VERSION in project.yml, poi:
+RELEASE_NOTES=note.md ./scripts/release.sh   # universale, firmata, notarizzata + appcast.xml
+./scripts/publish.sh                          # release GitHub: le app installate la ricevono
 ```
 
-Chi riceve il DMG lo apre, trascina Flusso in Applicazioni e lo avvia normalmente.
+Dettagli in [docs/Updates.md](docs/Updates.md).
 
 ## Compilare e installare
 
@@ -69,5 +78,5 @@ Il progetto Xcode viene generato da `project.yml` con XcodeGen.
 
 ## Licenze
 
-Flusso usa transcribe.cpp (MIT) e i modelli Parakeet pubblicati da
+Flusso è distribuito con licenza MIT. Usa transcribe.cpp (MIT) e i modelli Parakeet pubblicati da
 [handy-computer](https://huggingface.co/handy-computer) (CC-BY-4.0).

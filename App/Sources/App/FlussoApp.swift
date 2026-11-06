@@ -22,7 +22,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         #endif
         // Creates the overlay panel up front so the first dictation shows instantly.
         OverlayController.runDemoIfRequested()
+        #if DEBUG
+        // UI-only instance (screenshots, design work): no global shortcuts,
+        // no microphone, so it can't interfere with the installed Flusso.
+        if ProcessInfo.processInfo.environment["FLUSSO_UI_ONLY"] == "1" {
+            MainWindowController.shared.show()
+            return
+        }
+        #endif
         AppController.shared.start()
+        AppUpdater.shared.checkAtLaunch()
         if !AppSettings.shared.hasCompletedOnboarding {
             MainWindowController.shared.show()
         }
@@ -58,6 +67,8 @@ private struct MenuBarMenu: View {
         Divider()
         Button("Apri Flusso…") { MainWindowController.shared.show() }
             .keyboardShortcut(",")
+        Button("Verifica aggiornamenti…") { AppUpdater.shared.checkForUpdates() }
+            .disabled(!AppUpdater.shared.canCheckForUpdates)
         Divider()
         Text("Tieni premuto \(settings.holdShortcut.displayString) per dettare")
         Text("\(settings.lockShortcut.displayString) per la modalità mani libere")

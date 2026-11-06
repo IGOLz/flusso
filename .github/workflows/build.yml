@@ -1,0 +1,46 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    # Swift 6.2 features (default MainActor isolation) need Xcode 26 or later.
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Tools
+        run: brew install xcodegen ninja
+
+      - name: Cache engine
+        id: engine
+        uses: actions/cache@v4
+        with:
+          path: build/engine
+          key: engine-${{ hashFiles('scripts/build-engine.sh') }}-${{ hashFiles('.gitmodules') }}-${{ github.sha }}
+          restore-keys: engine-${{ hashFiles('scripts/build-engine.sh') }}-
+
+      - name: Engine (transcribe.cpp, universal)
+        if: steps.engine.outputs.cache-hit != 'true'
+        run: |
+          if [[ ! -f build/engine/lib/libtranscribe.a ]]; then ./scripts/build-engine.sh; fi
+
+      - name: App (universal, unsigned)
+        run: |
+          xcodegen generate
+          xcodebuild -project Flusso.xcodeproj -scheme Flusso -configuration Release \
+            -derivedDataPath build/dd -clonedSourcePackagesDirPath build/SourcePackages \
+            ONLY_ACTIVE_ARCH=NO ARCHS="arm64 x86_64" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" \
+            build | tail -20
+          lipo -archs build/dd/Build/Products/Release/Flusso.app/Contents/MacOS/Flusso
