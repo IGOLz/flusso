@@ -118,11 +118,18 @@ struct IconTile: View {
     var size: CGFloat = 26
 
     var body: some View {
+        let shape = RoundedRectangle(cornerRadius: size * 0.27, style: .continuous)
         Image(systemName: systemName)
-            .font(.system(size: size * 0.52, weight: .semibold))
+            .font(.system(size: size * 0.5, weight: .semibold))
             .foregroundStyle(.white)
+            .shadow(color: .black.opacity(0.12), radius: 0.5, y: 0.5)
             .frame(width: size, height: size)
-            .background(color.gradient, in: .rect(cornerRadius: size * 0.26, style: .continuous))
+            .background(color.gradient, in: shape)
+            .overlay {
+                shape.strokeBorder(LinearGradient(colors: [.white.opacity(0.28), .white.opacity(0.04)],
+                                                  startPoint: .top, endPoint: .bottom),
+                                   lineWidth: 0.5)
+            }
     }
 }
 
@@ -155,24 +162,9 @@ struct GrantedLabel: View {
 }
 
 /// A plain rounded card used outside of `Form`s.
-struct CardBackground: ViewModifier {
-    var highlighted = false
-
-    func body(content: Content) -> some View {
-        content
-            .background(Color(nsColor: .controlBackgroundColor).opacity(0.75),
-                        in: .rect(cornerRadius: 16, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .strokeBorder(highlighted ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.separator.opacity(0.6)),
-                                  lineWidth: highlighted ? 2 : 1)
-            }
-    }
-}
-
 extension View {
     func card(highlighted: Bool = false) -> some View {
-        modifier(CardBackground(highlighted: highlighted))
+        cardSurface(radius: 16, highlighted: highlighted)
     }
 }
 

@@ -29,9 +29,6 @@ struct OnboardingView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            StepIndicator(current: step)
-                .padding(.top, 6)
-
             GeometryReader { geo in
                 if step == .shortcuts {
                     // Fixed layout: this page doesn't scroll. Only if the
@@ -78,6 +75,13 @@ struct OnboardingView: View {
             .ignoresSafeArea()
         }
         .background(WindowTitle(title: "Flusso"))
+        // The progress lives in the toolbar: the window keeps the same
+        // toolbar height (and traffic-light position) as the main pages.
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                StepIndicator(current: step)
+            }
+        }
         .hiddenWindowToolbar()
     }
 
@@ -167,6 +171,7 @@ private struct StepIndicator: View {
                     .frame(width: step == current ? 28 : 8, height: 8)
             }
         }
+        .padding(.horizontal, 8)
         .animation(.smooth, value: current)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Passo \(current.rawValue + 1) di \(OnboardingStep.allCases.count)")

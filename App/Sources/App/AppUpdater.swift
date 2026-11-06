@@ -84,34 +84,3 @@ final class AppUpdater {
         }
     }
 }
-
-/// The "Aggiornamenti" section for the settings page.
-struct UpdateSettingsSection: View {
-    @Bindable private var updater = AppUpdater.shared
-
-    var body: some View {
-        Section {
-            Toggle("Cerca aggiornamenti automaticamente", isOn: $updater.automaticallyChecks)
-                .disabled(!AppUpdater.isEnabled)
-            if updater.allowsAutomaticDownloads {
-                Toggle("Scarica e installa automaticamente", isOn: $updater.automaticallyDownloads)
-                    .disabled(!updater.automaticallyChecks || !AppUpdater.isEnabled)
-            }
-            LabeledContent("Versione", value: updater.versionDescription)
-            HStack {
-                Spacer()
-                Button("Verifica aggiornamenti…") { updater.checkForUpdates() }
-                    .disabled(!updater.canCheckForUpdates)
-            }
-        } header: {
-            Text("Aggiornamenti")
-        } footer: {
-            Text(AppUpdater.isEnabled
-                 ? "Flusso cerca una nuova versione all'avvio e una volta al giorno. Gli aggiornamenti automatici vengono installati alla chiusura dell'app."
-                 : "Le build di sviluppo non si aggiornano da sole.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-        .onAppear { updater.refresh() }
-    }
-}

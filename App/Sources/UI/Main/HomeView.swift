@@ -1,5 +1,6 @@
 import SwiftUI
 
+/// Dashboard: status, stats, weekly activity, shortcuts and latest dictations.
 struct HomeView: View {
     @Binding var selection: SidebarPage?
 
@@ -7,201 +8,379 @@ struct HomeView: View {
     private var controller = AppController.shared
     private var permissions = Permissions.shared
     private var history = HistoryStore.shared
+    /// Bumped at midnight so "today", the streak and the week chart stay correct.
+    @State private var dayTick = 0
 
     init(selection: Binding<SidebarPage?>) {
         _selection = selection
     }
 
-    private var selectedModel: ModelInfo? {
-        ModelCatalog.model(id: settings.selectedModelID)
+    var body: some View {
+        let _ = dayTick
+        let items = history.displayedItems
+        let stats = DictationStats(items: items)
+        PageScroll {
+            WelcomeHeader(selection: $selection)
+
+            if permissions.microphone != .granted || !permissions.accessibility {
+                VStack(spacing: 10) {
+                    if permissions.microphone != .granted {
+                        NoticeCard(symbol: "mic.slash.fill",
+                                   title: "Accesso al microfono mancante",
+                                   message: "Flusso non può registrare la tua voce.") {
+                            Button(permissions.microphone == .denied ? "Apri Impostazioni" : "Consenti") {
+                                if permissions.microphone == .denied {
+                                    permissions.openMicrophoneSettings()
+                                } else {
+                                    Task { await permissions.requestMicrophone() }
+                                }
+                            }
+                            .glassButtonStyle()
+                        }
+                    }
+                    if !permissions.accessibility {
+                        NoticeCard(symbol: "accessibility",
+                                   title: "Permesso Accessibilità mancante",
+                                   message: "Serve per la scorciatoia globale e per incollare il testo.") {
+                            Button("Apri Impostazioni") {
+                                permissions.requestAccessibility()
+                                permissions.openAccessibilitySettings()
+                            }
+                            .glassButtonStyle()
+                        }
+                    }
+                }
+            }
+
+            AdaptiveColumns(minColumnWidth: 165) {
+                StatCard(symbol: "text.bubble.fill", color: .blue,
+                         value: stats.words.formatted(.number.locale(FlussoFormat.italian)),
+                         unit: nil,
+                         title: "Parole dettate",
+                         caption: stats.transcriptions == 1 ? "in 1 trascrizione" : "in \(stats.transcriptions) trascrizioni")
+                let saved = FlussoFormat.savedTime(stats.savedSeconds)
+                StatCard(symbol: "bolt.fill", color: .orange,
+                         value: saved.value, unit: saved.unit,
+                         title: "Tempo risparmiato",
+                         caption: "rispetto a scrivere a \(Int(DictationStats.typingWPM)) parole/min")
+                StatCard(symbol: "flame.fill", color: .pink,
+                         value: "\(stats.streak)", unit: stats.streak == 1 ? "giorno" : "giorni",
+                         title: "Serie",
+                         caption: stats.streak == 0 ? "Detta oggi per iniziarne una"
+                             : stats.dictatedToday ? "di fila, compreso oggi" : "Detta oggi per continuarla")
+            }
+
+            AdaptiveColumns(minColumnWidth: 270) {
+                WeekActivityCard(week: stats.week, wordsPerMinute: stats.wordsPerMinute)
+                ShortcutsCard { selection = .shortcuts }
+            }
+
+            SectionCard(title: "Recenti") {
+                if items.isEmpty {
+                    VStack(spacing: 6) {
+                        Image(systemName: "waveform")
+                            .font(.title2)
+                            .foregroundStyle(.tertiary)
+                        Text("Le tue dettature appariranno qui.")
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 26)
+                } else {
+                    let recent = Array(items.prefix(3))
+                    ForEach(recent) { item in
+                        RecentRow(item: item)
+                        if item.id != recent.last?.id { Divider().padding(.leading, DS.rowHPadding) }
+                    }
+                }
+            } accessory: {
+                if !items.isEmpty {
+                    Button {
+                        selection = .history
+                    } label: {
+                        HStack(spacing: 2) {
+                            Text("Mostra tutte")
+                            Image(systemName: "chevron.right").font(.caption.weight(.semibold))
+                        }
+                    }
+                    .buttonStyle(.link)
+                    .font(.callout)
+                }
+            }
+        }
+        .onDayChange { dayTick &+= 1 }
+    }
+}
+
+// MARK: - Header
+
+private struct WelcomeHeader: View {
+    @Binding var selection: SidebarPage?
+    private var controller = AppController.shared
+    private var settings = AppSettings.shared
+
+    init(selection: Binding<SidebarPage?>) { _selection = selection }
+
+    private var greeting: String {
+        switch Calendar.current.component(.hour, from: .now) {
+        case 5..<13: "Buongiorno"
+        case 13..<18: "Buon pomeriggio"
+        default: "Buonasera"
+        }
     }
 
     var body: some View {
-        Form {
-            Section {
-                header
-                if permissions.microphone != .granted {
-                    LabeledContent {
-                        Button(permissions.microphone == .denied ? "Apri Impostazioni" : "Consenti") {
-                            if permissions.microphone == .denied {
-                                permissions.openMicrophoneSettings()
-                            } else {
-                                Task { await permissions.requestMicrophone() }
-                            }
-                        }
-                    } label: {
-                        Label {
-                            Text("Accesso al microfono mancante")
-                            Text("Flusso non può registrare la tua voce.")
-                        } icon: {
-                            Image(systemName: "mic.slash.fill").foregroundStyle(.orange)
-                        }
-                    }
-                }
-                if !permissions.accessibility {
-                    LabeledContent {
-                        Button("Apri Impostazioni") {
-                            permissions.requestAccessibility()
-                            permissions.openAccessibilitySettings()
-                        }
-                    } label: {
-                        Label {
-                            Text("Permesso Accessibilità mancante")
-                            Text("Serve per la scorciatoia globale e per incollare il testo.")
-                        } icon: {
-                            Image(systemName: "accessibility").foregroundStyle(.orange)
-                        }
-                    }
-                }
-            }
-
-            Section("Come si usa") {
-                LabeledContent {
-                    KeyCaps(settings.holdShortcut)
-                } label: {
-                    Text("Tieni premuto per dettare")
-                    Text("Parla e rilascia: il testo viene incollato dove stai scrivendo.")
-                }
-                LabeledContent {
-                    KeyCaps(settings.lockShortcut)
-                } label: {
-                    Text("Modalità mani libere")
-                    Text("Premi una volta per iniziare, di nuovo per terminare.")
-                }
-            }
-
-            Section("Statistiche") {
-                HStack(spacing: 0) {
-                    Stat(value: history.totalWords, title: "parole dettate", symbol: "text.word.spacing")
-                    Divider().frame(height: 40)
-                    Stat(value: history.items.count, title: "trascrizioni", symbol: "waveform")
-                }
-                .padding(.vertical, 4)
-            }
-
-            Section {
-                if let latest = history.items.first {
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text(latest.text)
-                            .textSelection(.enabled)
-                            .lineLimit(6)
-                            .fixedSize(horizontal: false, vertical: true)
-                        HStack(spacing: 6) {
-                            Text(latest.date, format: .relative(presentation: .named))
-                            if let app = latest.appName {
-                                Text("·")
-                                Text(app)
-                            }
-                            if !latest.wasPasted {
-                                PillBadge(text: "Non incollato", color: .orange)
-                            }
-                            Spacer()
-                            TextCopyButton(text: latest.text, title: "Copia")
-                                .glassButtonStyle()
-                        }
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                    }
-                    .padding(.vertical, 4)
-                } else {
-                    Text("Le tue dettature appariranno qui.")
-                        .foregroundStyle(.secondary)
-                }
-            } header: {
-                HStack {
-                    Text("Ultima trascrizione")
-                    Spacer()
-                    if !history.items.isEmpty {
-                        Button("Mostra tutte") { selection = .history }
-                            .buttonStyle(.link)
-                            .font(.callout)
-                    }
-                }
-            }
-        }
-        .formStyle(.grouped)
-        .navigationTitle("Home")
-    }
-
-    // MARK: Status header
-
-    private var header: some View {
-        HStack(spacing: 16) {
+        let status = FlussoStatus.current
+        HStack(spacing: 18) {
             Image(nsImage: NSApp.applicationIconImage)
                 .resizable()
-                .frame(width: 64, height: 64)
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Flusso").font(.title2.weight(.bold))
-                status
-            }
-            Spacer()
-            statusAction
-        }
-        .padding(.vertical, 6)
-    }
-
-    @ViewBuilder
-    private var status: some View {
-        HStack(spacing: 6) {
-            switch (controller.phase, controller.engineStatus) {
-            case (.recording, _):
-                Circle().fill(.red).frame(width: 8, height: 8)
-                Text("In ascolto…")
-            case (.transcribing, _):
-                ProgressView().controlSize(.mini)
-                Text("Trascrizione in corso…")
-            case (_, .ready):
-                Circle().fill(permissions.allGranted ? .green : .orange).frame(width: 8, height: 8)
-                Text(permissions.allGranted ? "Pronto" : "Modello pronto, permessi mancanti")
-                if let selectedModel {
-                    Text("· \(selectedModel.name)")
+                .interpolation(.high)
+                .frame(width: 72, height: 72)
+                .shadow(color: .black.opacity(0.18), radius: 8, y: 4)
+            VStack(alignment: .leading, spacing: 6) {
+                Text(greeting)
+                    .font(.system(size: 26, weight: .bold))
+                Text("Tieni premuto \(settings.holdShortcut.displayString) e parla: il testo appare dove stai scrivendo.")
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 6) {
+                    StatusDot(status: status)
+                    Text(status.title).fontWeight(.medium)
+                    if let detail = status.detail {
+                        Text("·").foregroundStyle(.tertiary)
+                        Text(detail).foregroundStyle(.secondary).lineLimit(1)
+                    }
                 }
-            case (_, .loading):
-                ProgressView().controlSize(.mini)
-                Text("Caricamento di \(selectedModel?.name ?? "modello")…")
-            case (_, .noModel):
-                Circle().fill(.orange).frame(width: 8, height: 8)
-                Text("Nessun modello installato")
-            case (_, .failed(let message)):
-                Circle().fill(.red).frame(width: 8, height: 8)
-                Text(message).lineLimit(2)
+                .font(.callout)
+                .padding(.leading, 6)
+                .padding(.trailing, 10)
+                .padding(.vertical, 4)
+                .background(status.color.opacity(0.1), in: .capsule)
+                .padding(.top, 2)
+                .animation(.snappy, value: status.title)
+            }
+            Spacer(minLength: 0)
+            action
+        }
+        .padding(20)
+        .background {
+            ZStack(alignment: .topTrailing) {
+                Color.cardFill
+                LinearGradient(colors: [Color.indigo.opacity(0.14), Color.purple.opacity(0.06), .clear],
+                               startPoint: .topLeading, endPoint: .bottomTrailing)
             }
         }
-        .foregroundStyle(.secondary)
+        .clipShape(.rect(cornerRadius: DS.cardRadius + 2, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: DS.cardRadius + 2, style: .continuous)
+                .strokeBorder(Color.cardStroke, lineWidth: 1)
+        }
     }
 
     @ViewBuilder
-    private var statusAction: some View {
+    private var action: some View {
         switch controller.engineStatus {
         case .noModel:
             Button("Scarica un modello") { selection = .models }
                 .glassProminentButtonStyle()
+                .controlSize(.large)
         case .failed:
             Button("Riprova") {
-                if let selectedModel { controller.selectModel(selectedModel) }
+                if let model = ModelCatalog.model(id: settings.selectedModelID) { controller.selectModel(model) }
             }
             .glassButtonStyle()
+            .controlSize(.large)
         default:
             EmptyView()
         }
     }
 }
 
-private struct Stat: View {
-    let value: Int
-    let title: String
+// MARK: - Stats
+
+private struct StatCard: View {
     let symbol: String
+    let color: Color
+    let value: String
+    let unit: String?
+    let title: String
+    let caption: String
 
     var body: some View {
-        VStack(spacing: 2) {
-            Text(value, format: .number)
-                .font(.system(size: 28, weight: .semibold, design: .rounded))
-                .monospacedDigit()
-                .contentTransition(.numericText())
-            Label(title, systemImage: symbol)
-                .font(.callout)
-                .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                IconTile(systemName: symbol, color: color, size: 24)
+                Text(title)
+                    .font(.callout.weight(.medium))
+                    .foregroundStyle(.secondary)
+            }
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Text(value)
+                    .font(.system(size: 30, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                    .contentTransition(.numericText())
+                if let unit {
+                    Text(unit)
+                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Text(caption)
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .frame(maxWidth: .infinity)
+        .padding(16)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .cardSurface()
+    }
+}
+
+private struct WeekActivityCard: View {
+    let week: [(day: Date, words: Int)]
+    let wordsPerMinute: Int?
+
+    private static let weekday = Date.FormatStyle(locale: FlussoFormat.italian).weekday(.narrow)
+
+    var body: some View {
+        let maxWords = max(week.map(\.words).max() ?? 0, 1)
+        let total = week.reduce(0) { $0 + $1.words }
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Ultimi 7 giorni").font(.headline)
+                Spacer()
+                Text(total == 1 ? "1 parola" : "\(total.formatted(.number.locale(FlussoFormat.italian))) parole")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+            }
+            HStack(alignment: .bottom, spacing: 8) {
+                ForEach(Array(week.enumerated()), id: \.offset) { index, entry in
+                    let isToday = index == week.count - 1
+                    VStack(spacing: 6) {
+                        GeometryReader { geo in
+                            VStack {
+                                Spacer(minLength: 0)
+                                RoundedRectangle(cornerRadius: 5, style: .continuous)
+                                    .fill(entry.words == 0 ? AnyShapeStyle(Color.primary.opacity(0.08))
+                                          : isToday ? AnyShapeStyle(Color.accentColor.gradient)
+                                          : AnyShapeStyle(Color.accentColor.opacity(0.45).gradient))
+                                    .frame(height: entry.words == 0 ? 4
+                                           : max(8, geo.size.height * CGFloat(entry.words) / CGFloat(maxWords)))
+                            }
+                        }
+                        .help("\(FlussoFormat.dayTitle(entry.day)): \(entry.words) parole")
+                        Text(entry.day.formatted(Self.weekday).uppercased())
+                            .font(.caption2.weight(isToday ? .bold : .medium))
+                            .foregroundStyle(isToday ? AnyShapeStyle(.primary) : AnyShapeStyle(.tertiary))
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+            }
+            .frame(height: 96)
+            if let wordsPerMinute {
+                Label("Parli a circa \(wordsPerMinute) parole al minuto", systemImage: "speedometer")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .cardSurface()
+    }
+}
+
+private struct ShortcutsCard: View {
+    let edit: () -> Void
+    private var settings = AppSettings.shared
+
+    init(edit: @escaping () -> Void) { self.edit = edit }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Scorciatoie").font(.headline)
+                Spacer()
+                Button("Modifica", action: edit)
+                    .buttonStyle(.link)
+                    .font(.callout)
+            }
+            ShortcutLine(symbol: "mic.fill", color: .orange,
+                         title: "Detta", help: "Tieni premuto, parla e rilascia per incollare il testo",
+                         shortcut: settings.holdShortcut)
+            Divider()
+            ShortcutLine(symbol: "lock.fill", color: .blue,
+                         title: "Mani libere", help: "Premi una volta per iniziare, di nuovo per terminare",
+                         shortcut: settings.lockShortcut)
+            Spacer(minLength: 0)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .cardSurface()
+    }
+}
+
+private struct ShortcutLine: View {
+    let symbol: String
+    let color: Color
+    let title: String
+    let help: String
+    let shortcut: Shortcut
+
+    var body: some View {
+        HStack(spacing: 10) {
+            IconTile(systemName: symbol, color: color, size: 26)
+            Text(title)
+                .fontWeight(.medium)
+                .lineLimit(1)
+                .layoutPriority(-1)
+            Spacer(minLength: 8)
+            LiveShortcutCaps(shortcut: shortcut)
+        }
+        .frame(minHeight: 34)
+        .help(help)
+    }
+}
+
+// MARK: - Recent
+
+private struct RecentRow: View {
+    let item: HistoryItem
+    @State private var hovering = false
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(item.text)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 6) {
+                    Text(item.date, format: .relative(presentation: .named))
+                    if let app = item.appName, !app.isEmpty {
+                        Text("·").foregroundStyle(.tertiary)
+                        AppBadge(name: app)
+                    }
+                    if !item.wasPasted {
+                        PillBadge(text: "Non incollato", color: .orange)
+                    }
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 8)
+            TextCopyButton(text: item.text)
+                .buttonStyle(.borderless)
+                .foregroundStyle(.secondary)
+                .opacity(hovering || showsHoverControlsAlways ? 1 : 0.0)
+        }
+        .padding(.horizontal, DS.rowHPadding)
+        .padding(.vertical, 12)
+        .background(hovering ? Color.rowHover : .clear)
+        .contentShape(.rect)
+        .onHover { hovering = $0 }
+        .animation(.easeOut(duration: 0.12), value: hovering)
+        .contextMenu {
+            Button("Copia", systemImage: "doc.on.doc") { HistoryStore.shared.copy(item) }
+        }
     }
 }
