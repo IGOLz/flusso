@@ -123,6 +123,11 @@ struct MicrophoneSettingsView: View {
                           subtitle: "Keeps the microphone ready, so recording starts in 0 ms and even catches the moment before you press the key. While it’s on, macOS shows the orange microphone indicator.",
                           isOn: $settings.instantStart)
                 RowDivider()
+                ToggleRow(symbol: "waveform.badge.minus", color: .green,
+                          title: "Skip silence",
+                          subtitle: "Transcribes only the parts where you speak: faster, and no made-up words when nothing was said.",
+                          isOn: $settings.skipSilence)
+                RowDivider()
                 ToggleRow(symbol: "speaker.wave.2.fill", color: .blue,
                           title: "Sounds",
                           subtitle: "Play a sound when recording starts and stops.",

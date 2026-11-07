@@ -19,7 +19,7 @@ enum SelfTest {
                 try await engine.load(path: modelPath)
                 print("SELFTEST load+warmup: \(Int(Date().timeIntervalSince(t) * 1000)) ms")
 
-                let samples: [Float]
+                var samples: [Float]
                 if input.hasPrefix("mic:") {
                     let seconds = Double(input.dropFirst(4)) ?? 4
                     let recorder = AudioRecorder(levels: AudioLevelMeter())
@@ -33,9 +33,16 @@ enum SelfTest {
                 } else {
                     samples = try readAudio(URL(fileURLWithPath: input))
                 }
+
+                // FLUSSO_SELFTEST_PAD=<seconds>: quiet noise before and after (silence skipping test).
+                if let pad = ProcessInfo.processInfo.environment["FLUSSO_SELFTEST_PAD"].flatMap(Double.init) {
+                    let noise = (0..<Int(pad * 16_000)).map { _ in Float.random(in: -0.002...0.002) }
+                    samples = noise + samples + noise
+                }
                 print("SELFTEST audio: \(String(format: "%.2f", Double(samples.count) / 16_000)) s, peak \(samples.map(abs).max() ?? 0)")
+                let skipSilence = ProcessInfo.processInfo.environment["FLUSSO_SELFTEST_SKIP_SILENCE"] == "1"
                 t = Date()
-                let raw = try await engine.transcribe(samples, language: nil)
+                let raw = try await engine.transcribe(samples, language: nil, skipSilence: skipSilence)
                 print("SELFTEST transcribe: \(Int(Date().timeIntervalSince(t) * 1000)) ms")
                 print("SELFTEST text: \(TextCleanup.clean(raw, removeFillers: true))")
                 exit(0)

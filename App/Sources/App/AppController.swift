@@ -327,7 +327,7 @@ final class AppController {
             return
         }
         do {
-            let raw = try await engine.transcribe(samples, language: nil)
+            let raw = try await engine.transcribe(samples, language: nil, skipSilence: settings.skipSilence)
             let cleaned = TextCleanup.clean(raw, removeFillers: settings.removeFillerWords)
             let entries = settings.dictionary
             let snippets = settings.snippets

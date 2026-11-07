@@ -37,6 +37,8 @@ final class AppSettings {
     var microphoneUID: String? { didSet { defaults.set(microphoneUID, forKey: "microphoneUID") } }
 
     var playSounds: Bool { didSet { defaults.set(playSounds, forKey: "playSounds") } }
+    /// Transcribe only the parts with speech (Silero VAD).
+    var skipSilence: Bool { didSet { defaults.set(skipSilence, forKey: "skipSilence") } }
     var restoreClipboard: Bool { didSet { defaults.set(restoreClipboard, forKey: "restoreClipboard") } }
     var insertionMethod: InsertionMethod { didSet { defaults.set(insertionMethod.rawValue, forKey: "insertionMethod") } }
     var trailingSpace: Bool { didSet { defaults.set(trailingSpace, forKey: "trailingSpace") } }
@@ -65,6 +67,7 @@ final class AppSettings {
             "selectedModelID": ModelCatalog.defaultModelID,
             "instantStart": false,
             "playSounds": true,
+            "skipSilence": true,
             "restoreClipboard": true,
             "trailingSpace": false,
             "removeFillerWords": true,
@@ -86,6 +89,7 @@ final class AppSettings {
         instantStart = defaults.bool(forKey: "instantStart")
         microphoneUID = defaults.string(forKey: "microphoneUID")
         playSounds = defaults.bool(forKey: "playSounds")
+        skipSilence = defaults.bool(forKey: "skipSilence")
         restoreClipboard = defaults.bool(forKey: "restoreClipboard")
         insertionMethod = defaults.string(forKey: "insertionMethod").flatMap(InsertionMethod.init(rawValue:)) ?? .paste
         trailingSpace = defaults.bool(forKey: "trailingSpace")
