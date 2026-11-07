@@ -143,6 +143,12 @@ nonisolated final class HotkeyMonitor: @unchecked Sendable {
             return pass
         }
 
+        // Text Flusso itself is typing or pasting: not the user's keyboard.
+        if (type == .keyDown || type == .keyUp),
+           event.getIntegerValueField(.eventSourceUserData) == TextInserter.syntheticEventMarker {
+            return pass
+        }
+
         let cfg = config.withLock { $0 }
 
         // Leaving suspension (shortcut recorder closed): resync with the keyboard.

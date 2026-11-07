@@ -347,10 +347,30 @@ struct GeneralSettingsView: View {
             }
 
             SectionCard(title: "Text") {
-                ToggleRow(symbol: "doc.on.clipboard.fill", color: .blue,
-                          title: "Restore clipboard after pasting",
-                          subtitle: "After pasting the transcription, Flusso puts back what was on the clipboard before.",
-                          isOn: $settings.restoreClipboard)
+                SettingRow(symbol: "text.cursor", color: .indigo,
+                           title: "Insert text by",
+                           subtitle: settings.insertionMethod == .paste
+                               ? "Pasting is instant and works in almost every app."
+                               : "Typing works in apps that block pasting, but long texts take a moment.") {
+                    Picker("Insert text by", selection: $settings.insertionMethod) {
+                        Text("Pasting").tag(InsertionMethod.paste)
+                        Text("Typing").tag(InsertionMethod.type)
+                    }
+                    .labelsHidden()
+                    .fixedSize()
+                }
+                if settings.insertionMethod == .paste {
+                    RowDivider()
+                    ToggleRow(symbol: "doc.on.clipboard.fill", color: .blue,
+                              title: "Restore clipboard after pasting",
+                              subtitle: "After pasting the transcription, Flusso puts back what was on the clipboard before.",
+                              isOn: $settings.restoreClipboard)
+                }
+                RowDivider()
+                ToggleRow(symbol: "space", color: .teal,
+                          title: "Add a space after the text",
+                          subtitle: "So you can keep typing, or dictate again, right after it.",
+                          isOn: $settings.trailingSpace)
                 RowDivider()
                 ToggleRow(symbol: "scissors", color: .pink,
                           title: "Remove filler words",

@@ -2,6 +2,22 @@ import AppKit
 import ApplicationServices
 import Carbon.HIToolbox
 
+/// How the text reaches the focused field.
+nonisolated enum InsertionMethod: String, Codable, CaseIterable, Sendable {
+    /// Clipboard + ⌘V: instant, works almost everywhere.
+    case paste
+    /// Synthetic key presses, one character at a time: for apps that block
+    /// pasting. Slower for long texts.
+    case type
+}
+
+struct InsertOptions {
+    var method: InsertionMethod = .paste
+    var restoreClipboard = true
+    /// Adds a space after the text, so the next dictation or word can follow.
+    var trailingSpace = false
+}
+
 enum InsertOutcome: Equatable {
     case pasted
     /// Nothing editable had focus: the caller shows the "not pasted" toast.
@@ -26,7 +42,25 @@ final class TextInserter {
     private var ownedChangeCount: Int?
     private var restoreGeneration = 0
 
-    func insert(_ text: String, restoreClipboard: Bool) async -> InsertOutcome {
+    /// Marks the key events Flusso posts, so its own shortcut monitor
+    /// ignores them (`eventSourceUserData`).
+    nonisolated static let syntheticEventMarker: Int64 = 0x464C_5553 // "FLUS"
+
+    /// The insertion in progress: the next one waits for it, so a long typed
+    /// text and a new dictation never interleave.
+    private var lastInsertion: Task<InsertOutcome, Never>?
+
+    func insert(_ text: String, options: InsertOptions) async -> InsertOutcome {
+        let previous = lastInsertion
+        let task = Task {
+            _ = await previous?.value
+            return await performInsert(text, options: options)
+        }
+        lastInsertion = task
+        return await task.value
+    }
+
+    private func performInsert(_ text: String, options: InsertOptions) async -> InsertOutcome {
         let focus = inspectFocus()
         var output = text
         switch focus {
@@ -38,7 +72,13 @@ final class TextInserter {
         case .unknown:
             break
         }
-        await paste(output, restoreClipboard: restoreClipboard)
+        if options.trailingSpace, let last = output.last, !last.isWhitespace {
+            output += " "
+        }
+        switch options.method {
+        case .paste: await paste(output, restoreClipboard: options.restoreClipboard)
+        case .type: await type(output)
+        }
         return .pasted
     }
 
@@ -220,6 +260,41 @@ final class TextInserter {
         }
     }
 
+    // MARK: - Typing
+
+    /// Types the text as synthetic key presses carrying Unicode strings, so
+    /// it works whatever the keyboard layout. Line breaks are sent as Return.
+    private func type(_ text: String) async {
+        let source = CGEventSource(stateID: .privateState)
+        for (index, character) in text.enumerated() {
+            if character.isNewline {
+                postKey(CGKeyCode(kVK_Return), source: source)
+            } else {
+                let units = Array(String(character).utf16)
+                let down = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: true)
+                let up = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: false)
+                for event in [down, up] {
+                    // Never combine with modifiers the user may still hold.
+                    event?.flags = []
+                    event?.setIntegerValueField(.eventSourceUserData, value: Self.syntheticEventMarker)
+                    event?.keyboardSetUnicodeString(stringLength: units.count, unicodeString: units)
+                    event?.post(tap: .cghidEventTap)
+                }
+            }
+            // Apps drop characters that arrive too fast; yield regularly.
+            if index % 4 == 3 { try? await Task.sleep(for: .milliseconds(4)) }
+        }
+    }
+
+    private func postKey(_ key: CGKeyCode, source: CGEventSource?) {
+        for isDown in [true, false] {
+            let event = CGEvent(keyboardEventSource: source, virtualKey: key, keyDown: isDown)
+            event?.flags = []
+            event?.setIntegerValueField(.eventSourceUserData, value: Self.syntheticEventMarker)
+            event?.post(tap: .cghidEventTap)
+        }
+    }
+
     private func postCommandV() {
         let source = CGEventSource(stateID: .privateState)
         let vKey = CGKeyCode(kVK_ANSI_V)
@@ -227,6 +302,8 @@ final class TextInserter {
         let up = CGEvent(keyboardEventSource: source, virtualKey: vKey, keyDown: false)
         down?.flags = .maskCommand
         up?.flags = .maskCommand
+        down?.setIntegerValueField(.eventSourceUserData, value: Self.syntheticEventMarker)
+        up?.setIntegerValueField(.eventSourceUserData, value: Self.syntheticEventMarker)
         down?.post(tap: .cghidEventTap)
         up?.post(tap: .cghidEventTap)
     }

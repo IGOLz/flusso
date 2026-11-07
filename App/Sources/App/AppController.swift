@@ -338,7 +338,7 @@ final class AppController {
                 return
             }
             let appName = NSWorkspace.shared.frontmostApplication?.localizedName
-            let outcome = await inserter.insert(text, restoreClipboard: settings.restoreClipboard)
+            let outcome = await inserter.insert(text, options: settings.insertOptions)
             HistoryStore.shared.add(HistoryItem(
                 text: text, date: Date(), wasPasted: outcome == .pasted,
                 appName: outcome == .pasted ? appName : nil, duration: duration))
@@ -383,7 +383,7 @@ final class AppController {
             if fromMenu { try? await Task.sleep(for: .milliseconds(250)) }
             // A dictation may have started while waiting.
             guard phase == .idle else { return }
-            let outcome = await inserter.insert(text, restoreClipboard: settings.restoreClipboard)
+            let outcome = await inserter.insert(text, options: settings.insertOptions)
             if outcome == .noFocusedField { OverlayController.shared.showNotPasted(text: text) }
         }
     }

@@ -35,6 +35,8 @@ final class AppSettings {
 
     var playSounds: Bool { didSet { defaults.set(playSounds, forKey: "playSounds") } }
     var restoreClipboard: Bool { didSet { defaults.set(restoreClipboard, forKey: "restoreClipboard") } }
+    var insertionMethod: InsertionMethod { didSet { defaults.set(insertionMethod.rawValue, forKey: "insertionMethod") } }
+    var trailingSpace: Bool { didSet { defaults.set(trailingSpace, forKey: "trailingSpace") } }
     var removeFillerWords: Bool { didSet { defaults.set(removeFillerWords, forKey: "removeFillerWords") } }
     var hasCompletedOnboarding: Bool { didSet { defaults.set(hasCompletedOnboarding, forKey: "hasCompletedOnboarding") } }
 
@@ -61,6 +63,7 @@ final class AppSettings {
             "instantStart": false,
             "playSounds": true,
             "restoreClipboard": true,
+            "trailingSpace": false,
             "removeFillerWords": true,
             "hasCompletedOnboarding": false,
         ])
@@ -80,8 +83,14 @@ final class AppSettings {
         microphoneUID = defaults.string(forKey: "microphoneUID")
         playSounds = defaults.bool(forKey: "playSounds")
         restoreClipboard = defaults.bool(forKey: "restoreClipboard")
+        insertionMethod = defaults.string(forKey: "insertionMethod").flatMap(InsertionMethod.init(rawValue:)) ?? .paste
+        trailingSpace = defaults.bool(forKey: "trailingSpace")
         removeFillerWords = defaults.bool(forKey: "removeFillerWords")
         hasCompletedOnboarding = defaults.bool(forKey: "hasCompletedOnboarding")
+    }
+
+    var insertOptions: InsertOptions {
+        InsertOptions(method: insertionMethod, restoreClipboard: restoreClipboard, trailingSpace: trailingSpace)
     }
 
     private func save<T: Encodable>(_ value: T, _ key: String) {
