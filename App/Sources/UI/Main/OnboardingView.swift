@@ -400,9 +400,7 @@ private struct ShortcutsPage: View {
         }
     }
 
-    private var usesFn: Bool {
-        settings.holdShortcut.modifiers.contains(.function) || settings.lockShortcut.modifiers.contains(.function)
-    }
+    private var usesFn: Bool { settings.dictationUsesFn }
 }
 
 private struct ShortcutRow: View {
@@ -419,7 +417,7 @@ private struct ShortcutRow: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 8)
-            ShortcutRecorder(kind)
+            ShortcutList(kind)
         }
         .padding(16)
     }

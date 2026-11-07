@@ -2,7 +2,7 @@ import AppKit
 import Carbon.HIToolbox
 import SwiftUI
 
-/// Which global shortcut a recorder edits.
+/// Which global action a recorder edits.
 enum ShortcutKind: CaseIterable {
     case hold, lock, pasteLast
 
@@ -15,78 +15,120 @@ enum ShortcutKind: CaseIterable {
     }
 
     @MainActor
-    var current: Shortcut {
-        let settings = AppSettings.shared
-        switch self {
-        case .hold: return settings.holdShortcut
-        case .lock: return settings.lockShortcut
-        case .pasteLast: return settings.pasteLastShortcut
+    var shortcuts: [Shortcut] {
+        get {
+            let settings = AppSettings.shared
+            switch self {
+            case .hold: return settings.holdShortcuts
+            case .lock: return settings.lockShortcuts
+            case .pasteLast: return settings.pasteLastShortcuts
+            }
+        }
+        nonmutating set {
+            let settings = AppSettings.shared
+            switch self {
+            case .hold: settings.holdShortcuts = newValue
+            case .lock: settings.lockShortcuts = newValue
+            case .pasteLast: settings.pasteLastShortcuts = newValue
+            }
         }
     }
 
-    @MainActor
-    func set(_ shortcut: Shortcut) {
-        let settings = AppSettings.shared
-        switch self {
-        case .hold: settings.holdShortcut = shortcut
-        case .lock: settings.lockShortcut = shortcut
-        case .pasteLast: settings.pasteLastShortcut = shortcut
-        }
-    }
-
-    /// Only the paste shortcut can be turned off.
-    var canBeDisabled: Bool { self == .pasteLast }
+    /// Dictation always needs a way to start; the paste shortcut can be turned off.
+    var minimumCount: Int { self == .pasteLast ? 0 : 1 }
+    static let maximumCount = 5
 }
 
-/// Key-cap style control that records a new global shortcut.
-///
-/// Click → "Press Keys…": a key combo (e.g. ⌥ + Space) is taken on key
-/// down; pressing and releasing modifiers alone (e.g. fn, right ⌥) records a
-/// modifier-only shortcut. Esc cancels.
-struct ShortcutRecorder: View {
+/// All the shortcuts of one action, each removable, plus an "Add" button
+/// that records another one (a key combo, a modifier or a mouse button).
+struct ShortcutList: View {
     let kind: ShortcutKind
+    @Bindable private var settings = AppSettings.shared
+
+    init(_ kind: ShortcutKind) { self.kind = kind }
+
+    var body: some View {
+        _ = settings.holdShortcuts; _ = settings.lockShortcuts; _ = settings.pasteLastShortcuts
+        let list = kind.shortcuts
+        return VStack(alignment: .trailing, spacing: 6) {
+            // Identified by value (a list never holds the same shortcut twice),
+            // so a row being recorded keeps its state when another is removed.
+            ForEach(Array(list.enumerated()), id: \.element) { index, _ in
+                ShortcutRecorder(kind, slot: .existing(index))
+            }
+            if list.count < ShortcutKind.maximumCount {
+                ShortcutRecorder(kind, slot: .new)
+            }
+        }
+        .animation(.snappy, value: list)
+    }
+}
+
+/// Key-cap style control that records a global shortcut.
+///
+/// Click → "Press Shortcut…": a key combo (e.g. ⌥ + Space) is taken on key
+/// down; pressing and releasing modifiers alone (e.g. fn, right ⌥) records a
+/// modifier-only shortcut; an extra mouse button (middle, back, forward),
+/// optionally with modifiers, records a mouse shortcut. Esc cancels.
+struct ShortcutRecorder: View {
+    enum Slot: Equatable {
+        case existing(Int)
+        /// Records a shortcut to append to the list.
+        case new
+    }
+
+    let kind: ShortcutKind
+    let slot: Slot
     @Bindable private var settings = AppSettings.shared
     @State private var capture = ShortcutCapture()
     /// The whole combination is physically held right now.
     @State private var fullyPressed = false
 
-    /// Reserves the space of the "turn off" button, so recorders stacked
-    /// with a clearable one line up.
-    private let reservesClearSpace: Bool
-
-    init(_ kind: ShortcutKind, reservesClearSpace: Bool = false) {
+    init(_ kind: ShortcutKind, slot: Slot) {
         self.kind = kind
-        self.reservesClearSpace = reservesClearSpace
+        self.slot = slot
     }
 
     private var shortcut: Shortcut {
-        _ = settings.holdShortcut; _ = settings.lockShortcut; _ = settings.pasteLastShortcut
-        return kind.current
+        _ = settings.holdShortcuts; _ = settings.lockShortcuts; _ = settings.pasteLastShortcuts
+        guard case .existing(let index) = slot, kind.shortcuts.indices.contains(index) else { return .none }
+        return kind.shortcuts[index]
+    }
+
+    private var canRemove: Bool {
+        if case .existing = slot { return kind.shortcuts.count > kind.minimumCount }
+        return false
     }
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 4) {
             HStack(spacing: 6) {
-                Button {
-                    if capture.isCapturing { capture.cancel() } else { start() }
-                } label: {
-                    label
-                }
-                .buttonStyle(.plain)
-                .help(capture.isCapturing ? "Press the new combination, or Esc to cancel" : "Click to change the shortcut")
-
-                if kind.canBeDisabled, !shortcut.isEmpty, !capture.isCapturing {
+                if slot == .new && !capture.isCapturing {
+                    addButton
+                } else {
                     Button {
-                        withAnimation(.snappy) { kind.set(.none) }
+                        if capture.isCapturing { capture.cancel() } else { start() }
+                    } label: {
+                        label
+                    }
+                    .buttonStyle(.plain)
+                    .help(capture.isCapturing ? "Press the new shortcut, or Esc to cancel" : "Click to change this shortcut")
+                }
+
+                if canRemove, !capture.isCapturing {
+                    Button {
+                        guard case .existing(let index) = slot else { return }
+                        withAnimation(.snappy) { _ = kind.shortcuts.remove(at: index) }
                     } label: {
                         Image(systemName: "xmark.circle.fill")
                             .foregroundStyle(.tertiary)
                             .frame(width: 16)
                     }
                     .buttonStyle(.plain)
-                    .help("Turn off this shortcut")
-                    .accessibilityLabel("Turn off this shortcut")
-                } else if kind.canBeDisabled || reservesClearSpace {
+                    .help("Remove this shortcut")
+                    .accessibilityLabel("Remove \(shortcut.displayString)")
+                } else {
+                    // Keeps every row of the list lined up.
                     Color.clear.frame(width: 16, height: 1)
                 }
             }
@@ -98,6 +140,7 @@ struct ShortcutRecorder: View {
                     .multilineTextAlignment(.trailing)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: 260, alignment: .trailing)
+                    .padding(.trailing, 22)
                     .transition(.opacity)
             }
         }
@@ -109,13 +152,26 @@ struct ShortcutRecorder: View {
         }
     }
 
+    private var addButton: some View {
+        Button(action: start) {
+            Label(kind.shortcuts.isEmpty ? "Add Shortcut" : "Add Another", systemImage: "plus")
+                .font(.callout.weight(.medium))
+                .padding(.horizontal, 10)
+                .frame(minHeight: 26)
+                .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(.tint)
+        .help("Add another shortcut for \(kind.name): keys or an extra mouse button")
+    }
+
     private var label: some View {
         HStack(spacing: 6) {
             if capture.isCapturing {
                 Image(systemName: "record.circle")
                     .foregroundStyle(.tint)
                     .symbolEffect(.pulse, options: .repeating)
-                Text("Press Keys…")
+                Text("Press Shortcut…")
                     .foregroundStyle(.tint)
                     .font(.callout.weight(.medium))
             } else if shortcut.isEmpty {
@@ -157,17 +213,26 @@ struct ShortcutRecorder: View {
 
     private func start() {
         fullyPressed = false
+        // The shortcut being replaced, found again by value when the capture
+        // ends (rows above it may have been removed meanwhile).
+        let original: Shortcut? = slot == .new ? nil : shortcut
+        let kind = self.kind
         capture.start { candidate in
-            if let error = validate(candidate) { return error }
-            kind.set(candidate)
+            if let error = Self.validate(candidate, kind: kind, replacing: original) { return error }
+            if let original {
+                guard let index = kind.shortcuts.firstIndex(of: original) else { return nil }
+                kind.shortcuts[index] = candidate
+            } else {
+                kind.shortcuts.append(candidate)
+            }
             return nil
         }
     }
 
     /// Returns an error message, or nil if the shortcut is acceptable.
-    private func validate(_ candidate: Shortcut) -> String? {
+    private static func validate(_ candidate: Shortcut, kind: ShortcutKind, replacing original: Shortcut?) -> String? {
         if kind == .pasteLast, candidate.isModifierOnly {
-            return "Use a key with modifiers, like ⌃ ⌘ V."
+            return "Use a key with modifiers, like ⌃ ⌘ V, or a mouse button."
         }
         if let keyCode = candidate.keyCode {
             let meaningful = candidate.modifiers.subtracting([.leftShift, .rightShift])
@@ -175,9 +240,20 @@ struct ShortcutRecorder: View {
                 return "Add a modifier (fn, ⌃, ⌥, or ⌘) — a key on its own would get in the way of typing."
             }
         }
-        for other in ShortcutKind.allCases where other != kind {
-            if ShortcutCapture.conflicts(candidate, other.current) {
-                return "This shortcut is already used for \(other.name)."
+        for other in ShortcutKind.allCases {
+            for existing in other.shortcuts {
+                if other == kind, existing == original { continue }
+                if candidate.conflicts(with: existing) {
+                    return other == kind
+                        ? "This shortcut is already in the list."
+                        : "This shortcut is already used for \(other.name)."
+                }
+                // Hands-free toggles on every match: a modifier alone plus a
+                // combo using it would switch it on and straight off again.
+                if kind == .lock, other == .lock, existing != original,
+                   candidate.overlapsAsToggle(with: existing) {
+                    return "This overlaps with \(existing.displayString): pressing one would trigger both."
+                }
             }
         }
         return nil
@@ -192,6 +268,8 @@ final class ShortcutCapture {
     private(set) var messageIsError = false
 
     @ObservationIgnored private var monitor: Any?
+    /// Mouse buttons pressed while the pointer is over another app.
+    @ObservationIgnored private var globalMouseMonitor: Any?
     @ObservationIgnored private var peak: ModifierKeys = []
     /// A regular key was pressed during the current chord: releasing the
     /// modifiers afterwards must not produce a modifier-only shortcut.
@@ -214,14 +292,18 @@ final class ShortcutCapture {
         self.onCapture = onCapture
         peak = []
         keyPressedInChord = false
-        message = "Press Esc to cancel"
+        message = "Press keys or an extra mouse button. Esc cancels."
         messageIsError = false
         isCapturing = true
         AppController.shared.hotkeysSuspended = true
-        monitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .flagsChanged]) { [weak self] event in
+        monitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .flagsChanged, .otherMouseDown]) { [weak self] event in
             guard let self else { return event }
             let swallow = MainActor.assumeIsolated { self.handle(event) }
             return swallow ? nil : event
+        }
+        globalMouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: .otherMouseDown) { [weak self] event in
+            guard let self else { return }
+            MainActor.assumeIsolated { _ = self.handle(event) }
         }
     }
 
@@ -249,6 +331,13 @@ final class ShortcutCapture {
             }
             keyPressedInChord = true
             finish(with: Shortcut.fromKeyDown(event))
+            return true
+
+        case .otherMouseDown:
+            // Left and right clicks never reach here; 2+ are middle, back, forward…
+            guard event.buttonNumber >= 2, event.buttonNumber <= 31 else { return false }
+            keyPressedInChord = true
+            finish(with: Shortcut(keyCode: nil, modifiers: held, mouseButton: UInt8(event.buttonNumber)))
             return true
 
         case .flagsChanged:
@@ -295,6 +384,8 @@ final class ShortcutCapture {
     private func teardown() {
         if let monitor { NSEvent.removeMonitor(monitor) }
         monitor = nil
+        if let globalMouseMonitor { NSEvent.removeMonitor(globalMouseMonitor) }
+        globalMouseMonitor = nil
         releaseTimeout?.cancel()
         releaseTimeout = nil
         let wasActive = isCapturing || awaitingRelease || Self.active === self
@@ -315,12 +406,5 @@ final class ShortcutCapture {
         let fKeys = [kVK_F1, kVK_F2, kVK_F3, kVK_F4, kVK_F5, kVK_F6, kVK_F7, kVK_F8, kVK_F9, kVK_F10,
                      kVK_F11, kVK_F12, kVK_F13, kVK_F14, kVK_F15, kVK_F16, kVK_F17, kVK_F18, kVK_F19, kVK_F20]
         return fKeys.contains(Int(keyCode))
-    }
-
-    /// Whether two shortcuts would trigger on the same input.
-    static func conflicts(_ a: Shortcut, _ b: Shortcut) -> Bool {
-        guard !a.isEmpty, !b.isEmpty, a.keyCode == b.keyCode else { return false }
-        if a.keyCode == nil { return a.modifiers == b.modifiers }
-        return a.modifiers.sideAgnostic == b.modifiers.sideAgnostic
     }
 }

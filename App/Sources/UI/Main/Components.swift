@@ -6,6 +6,8 @@ import SwiftUI
 /// A single keyboard key, drawn like a physical key cap.
 struct KeyCap: View {
     let label: String
+    /// SF Symbol shown before the label (e.g. a mouse for mouse buttons).
+    var symbol: String? = nil
     /// Lit while the physical key is held.
     var isPressed = false
     @Environment(\.controlSize) private var controlSize
@@ -13,7 +15,10 @@ struct KeyCap: View {
     private var isLarge: Bool { controlSize == .large || controlSize == .extraLarge }
 
     var body: some View {
-        Text(label)
+        HStack(spacing: 4) {
+            if let symbol { Image(systemName: symbol).imageScale(.small) }
+            Text(label)
+        }
             .font(.system(isLarge ? .title3 : .callout, design: .rounded).weight(.medium))
             .foregroundStyle(isPressed ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
             .lineLimit(1)
@@ -54,7 +59,8 @@ struct LiveShortcutCaps: View {
                 Text("None").foregroundStyle(.secondary)
             }
             ForEach(Array(parts.enumerated()), id: \.offset) { _, part in
-                KeyCap(label: part.label, isPressed: part.isPressed(keyboard))
+                KeyCap(label: part.label, symbol: part.mouseButton == nil ? nil : "computermouse.fill",
+                       isPressed: part.isPressed(keyboard))
             }
         }
         .accessibilityElement(children: .ignore)

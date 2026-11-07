@@ -309,16 +309,16 @@ private struct ShortcutsCard: View {
             }
             ShortcutLine(symbol: "mic.fill", color: .orange,
                          title: "Dictate", help: "Hold, speak, and release to paste the text",
-                         shortcut: settings.holdShortcut)
+                         shortcuts: settings.holdShortcuts)
             Divider()
             ShortcutLine(symbol: "lock.fill", color: .blue,
                          title: "Hands-free", help: "Press once to start, again to stop",
-                         shortcut: settings.lockShortcut)
-            if !settings.pasteLastShortcut.isEmpty {
+                         shortcuts: settings.lockShortcuts)
+            if !settings.pasteLastShortcuts.isEmpty {
                 Divider()
                 ShortcutLine(symbol: "arrow.uturn.backward", color: .purple,
                              title: "Paste last", help: "Paste your latest transcription again",
-                             shortcut: settings.pasteLastShortcut)
+                             shortcuts: settings.pasteLastShortcuts)
             }
             Spacer(minLength: 0)
         }
@@ -333,7 +333,7 @@ private struct ShortcutLine: View {
     let color: Color
     let title: String
     let help: String
-    let shortcut: Shortcut
+    let shortcuts: [Shortcut]
 
     var body: some View {
         HStack(spacing: 10) {
@@ -343,10 +343,23 @@ private struct ShortcutLine: View {
                 .lineLimit(1)
                 .layoutPriority(-1)
             Spacer(minLength: 8)
-            LiveShortcutCaps(shortcut: shortcut)
+            if let first = shortcuts.first {
+                LiveShortcutCaps(shortcut: first)
+            }
+            if shortcuts.count > 1 {
+                // The others are listed in the tooltip and on the Shortcuts page.
+                Text("+\(shortcuts.count - 1)")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(.fill.tertiary, in: .capsule)
+            }
         }
         .frame(minHeight: 34)
-        .help(help)
+        .help(shortcuts.count > 1
+              ? "\(help): " + shortcuts.map(\.displayString).joined(separator: " or ")
+              : help)
     }
 }
 

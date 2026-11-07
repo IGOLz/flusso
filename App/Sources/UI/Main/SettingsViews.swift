@@ -6,46 +6,44 @@ import SwiftUI
 struct ShortcutsSettingsView: View {
     @Bindable private var settings = AppSettings.shared
 
-    private var usesFn: Bool {
-        settings.holdShortcut.modifiers.contains(.function) || settings.lockShortcut.modifiers.contains(.function)
-    }
+    private var usesFn: Bool { settings.dictationUsesFn }
 
     private var isDefault: Bool {
-        settings.holdShortcut == .holdDefault && settings.lockShortcut == .lockDefault
-            && settings.pasteLastShortcut == .pasteLastDefault
+        settings.holdShortcuts == [.holdDefault] && settings.lockShortcuts == [.lockDefault]
+            && settings.pasteLastShortcuts == [.pasteLastDefault]
     }
 
     var body: some View {
         PageScroll {
             PageHero(symbol: "keyboard.fill", color: .gray,
                      title: "Shortcuts",
-                     description: "Press a shortcut to try it — its keys light up. Click a shortcut to record a new one.")
+                     description: "Press a shortcut to try it — its keys light up. Click one to change it, or add more: keys, a single modifier, or an extra mouse button.")
 
             SectionCard(title: "Dictation",
-                        footer: "You can also use a single modifier, like fn or right ⌥. Press Esc to cancel recording.") {
+                        footer: "Each action can have several shortcuts, and any of them works: for example fn on the keyboard and the middle or side button of your mouse. Press Esc to cancel recording.") {
                 SettingRow(symbol: "mic.fill", color: .orange,
                            title: "Hold to dictate",
                            subtitle: "Hold, speak, and release to paste the text.") {
-                    ShortcutRecorder(.hold, reservesClearSpace: true)
+                    ShortcutList(.hold)
                 }
                 RowDivider()
                 SettingRow(symbol: "lock.fill", color: .blue,
                            title: "Hands-free mode",
                            subtitle: "Press once to start dictating, again to stop.") {
-                    ShortcutRecorder(.lock, reservesClearSpace: true)
+                    ShortcutList(.lock)
                 }
                 RowDivider()
                 SettingRow(symbol: "arrow.uturn.backward.circle.fill", color: .purple,
                            title: "Paste last transcription",
                            subtitle: "Pastes your latest dictation again, e.g. if it went into the wrong field.") {
-                    ShortcutRecorder(.pasteLast)
+                    ShortcutList(.pasteLast)
                 }
             } accessory: {
                 Button("Restore Defaults") {
                     withAnimation(.snappy) {
-                        settings.holdShortcut = .holdDefault
-                        settings.lockShortcut = .lockDefault
-                        settings.pasteLastShortcut = .pasteLastDefault
+                        settings.holdShortcuts = [.holdDefault]
+                        settings.lockShortcuts = [.lockDefault]
+                        settings.pasteLastShortcuts = [.pasteLastDefault]
                     }
                 }
                 .buttonStyle(.link)

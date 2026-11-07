@@ -9,12 +9,21 @@ final class AppSettings {
 
     @ObservationIgnored private let defaults = UserDefaults.standard
 
-    /// Hold to record, release to transcribe.
-    var holdShortcut: Shortcut { didSet { save(holdShortcut, "holdShortcut") } }
+    /// Hold to record, release to transcribe. Any of them works.
+    var holdShortcuts: [Shortcut] { didSet { save(holdShortcuts, "holdShortcuts") } }
     /// Press once to lock recording on, press again to stop and transcribe.
-    var lockShortcut: Shortcut { didSet { save(lockShortcut, "lockShortcut") } }
-    /// Pastes the latest transcription again. `.none` = disabled.
-    var pasteLastShortcut: Shortcut { didSet { save(pasteLastShortcut, "pasteLastShortcut") } }
+    var lockShortcuts: [Shortcut] { didSet { save(lockShortcuts, "lockShortcuts") } }
+    /// Pastes the latest transcription again. Empty = disabled.
+    var pasteLastShortcuts: [Shortcut] { didSet { save(pasteLastShortcuts, "pasteLastShortcuts") } }
+
+    /// The first shortcut of each action, for short hints ("Hold fn to dictate").
+    var holdShortcut: Shortcut { holdShortcuts.first ?? .none }
+    var lockShortcut: Shortcut { lockShortcuts.first ?? .none }
+
+    /// A dictation shortcut uses the fn key (see `FnKeyTip`).
+    var dictationUsesFn: Bool {
+        (holdShortcuts + lockShortcuts).contains { $0.modifiers.contains(.function) }
+    }
 
     /// Languages the user speaks. Empty = automatic detection.
     /// Parakeet detects the language on its own; this list is a hint and
@@ -103,9 +112,9 @@ final class AppSettings {
         #else
         let useDefaults = false
         #endif
-        holdShortcut = useDefaults ? .holdDefault : Self.load("holdShortcut", from: defaults) ?? .holdDefault
-        lockShortcut = useDefaults ? .lockDefault : Self.load("lockShortcut", from: defaults) ?? .lockDefault
-        pasteLastShortcut = useDefaults ? .pasteLastDefault : Self.load("pasteLastShortcut", from: defaults) ?? .pasteLastDefault
+        holdShortcuts = useDefaults ? [.holdDefault] : Self.loadShortcuts("hold", .holdDefault, from: defaults)
+        lockShortcuts = useDefaults ? [.lockDefault] : Self.loadShortcuts("lock", .lockDefault, from: defaults)
+        pasteLastShortcuts = useDefaults ? [.pasteLastDefault] : Self.loadShortcuts("pasteLast", .pasteLastDefault, from: defaults)
         spokenLanguages = Self.load("spokenLanguages", from: defaults) ?? ["en"]
         dictionary = Self.load("dictionary", from: defaults) ?? []
         snippets = Self.load("snippets", from: defaults) ?? []
@@ -125,6 +134,14 @@ final class AppSettings {
         removeFillerWords = defaults.bool(forKey: "removeFillerWords")
         keepAudio = defaults.bool(forKey: "keepAudio")
         hasCompletedOnboarding = defaults.bool(forKey: "hasCompletedOnboarding")
+    }
+
+    /// Reads `<name>Shortcuts`, falling back to the single `<name>Shortcut`
+    /// saved before Flusso supported several shortcuts per action.
+    private static func loadShortcuts(_ name: String, _ fallback: Shortcut, from defaults: UserDefaults) -> [Shortcut] {
+        if let list: [Shortcut] = load("\(name)Shortcuts", from: defaults) { return list.filter { !$0.isEmpty } }
+        let legacy: Shortcut = load("\(name)Shortcut", from: defaults) ?? fallback
+        return legacy.isEmpty ? [] : [legacy]
     }
 
     var insertOptions: InsertOptions {

@@ -93,34 +93,48 @@ nonisolated struct ModifierKeys: OptionSet, Codable, Hashable, Sendable {
     }
 }
 
-/// One key cap of a shortcut: a modifier (lit when any of `anyOf` is held)
-/// or a regular key (lit while `keyCode` is down).
+/// One key cap of a shortcut: a modifier (lit when any of `anyOf` is held),
+/// a regular key (lit while `keyCode` is down) or a mouse button.
 nonisolated struct ShortcutCapPart: Hashable, Sendable {
     let label: String
     let anyOf: ModifierKeys
     let keyCode: UInt16?
+    var mouseButton: UInt8? = nil
 
     func isPressed(_ keyboard: KeyboardSnapshot) -> Bool {
+        if let mouseButton { return keyboard.buttonsDown.contains(mouseButton) }
         if let keyCode { return keyboard.keysDown.contains(keyCode) }
         return !keyboard.held.intersection(anyOf).isEmpty
     }
 }
 
-/// Physical keyboard state as seen by the event tap.
+/// Physical keyboard (and extra mouse button) state as seen by the event tap.
 nonisolated struct KeyboardSnapshot: Equatable, Sendable {
     var held: ModifierKeys = []
     var keysDown: Set<UInt16> = []
+    var buttonsDown: Set<UInt8> = []
 }
 
-/// A global shortcut: either modifier-only (e.g. `fn`, `⌥ destro`) or a key
-/// with optional modifiers (e.g. `fn + Spazio`).
+/// A global shortcut: modifier-only (e.g. `fn`, right `⌥`), a key with
+/// optional modifiers (e.g. `fn + Space`), or an extra mouse button with
+/// optional modifiers (e.g. middle click, `⌥ + Back Button`).
 nonisolated struct Shortcut: Codable, Hashable, Sendable {
-    /// `nil` for modifier-only shortcuts.
+    /// `nil` for modifier-only and mouse shortcuts.
     var keyCode: UInt16?
     var modifiers: ModifierKeys
+    /// CGEvent mouse button number (2 = middle, 3 = back, 4 = forward…).
+    /// Left and right clicks (0, 1) are never used.
+    var mouseButton: UInt8? = nil
 
-    var isModifierOnly: Bool { keyCode == nil }
-    var isEmpty: Bool { keyCode == nil && modifiers.isEmpty }
+    init(keyCode: UInt16?, modifiers: ModifierKeys, mouseButton: UInt8? = nil) {
+        self.keyCode = keyCode
+        self.modifiers = modifiers
+        self.mouseButton = mouseButton
+    }
+
+    var isMouse: Bool { mouseButton != nil }
+    var isModifierOnly: Bool { keyCode == nil && mouseButton == nil }
+    var isEmpty: Bool { isModifierOnly && modifiers.isEmpty }
 
     static let holdDefault = Shortcut(keyCode: nil, modifiers: .function)
     static let lockDefault = Shortcut(keyCode: UInt16(kVK_Space), modifiers: .function)
@@ -135,6 +149,12 @@ nonisolated struct Shortcut: Codable, Hashable, Sendable {
         return held.sideAgnostic == modifiers.sideAgnostic
     }
 
+    /// Whether a press of extra mouse button `button` with `held` modifiers triggers this shortcut.
+    func matchesMouseDown(button: UInt8, held: ModifierKeys) -> Bool {
+        guard let mouseButton, mouseButton == button else { return false }
+        return held.sideAgnostic == modifiers.sideAgnostic
+    }
+
     /// Whether exactly this modifier-only shortcut is held.
     func matchesModifiers(_ held: ModifierKeys) -> Bool {
         isModifierOnly && !modifiers.isEmpty && held == modifiers
@@ -144,6 +164,7 @@ nonisolated struct Shortcut: Codable, Hashable, Sendable {
         if isEmpty { return "None" }
         var parts = modifiers.displayParts(sideSpecific: isModifierOnly)
         if let keyCode { parts.append(Shortcut.keyName(for: keyCode)) }
+        if let mouseButton { parts.append(Shortcut.mouseButtonName(mouseButton)) }
         return parts.joined(separator: " + ")
     }
 
@@ -157,16 +178,47 @@ nonisolated struct Shortcut: Codable, Hashable, Sendable {
         if let keyCode {
             parts.append(ShortcutCapPart(label: Shortcut.keyName(for: keyCode), anyOf: [], keyCode: keyCode))
         }
+        if let mouseButton {
+            parts.append(ShortcutCapPart(label: Shortcut.mouseButtonName(mouseButton), anyOf: [],
+                                         keyCode: nil, mouseButton: mouseButton))
+        }
         return parts
     }
 
     /// Whether the whole shortcut is currently held.
     func isFullyPressed(_ keyboard: KeyboardSnapshot) -> Bool {
         guard !isEmpty else { return false }
+        if let mouseButton {
+            return keyboard.buttonsDown.contains(mouseButton) && keyboard.held.sideAgnostic == modifiers.sideAgnostic
+        }
         if let keyCode {
             return keyboard.keysDown.contains(keyCode) && keyboard.held.sideAgnostic == modifiers.sideAgnostic
         }
         return keyboard.held == modifiers && keyboard.keysDown.isEmpty
+    }
+
+    /// Whether two shortcuts would trigger on the same input.
+    func conflicts(with other: Shortcut) -> Bool {
+        guard !isEmpty, !other.isEmpty, keyCode == other.keyCode, mouseButton == other.mouseButton else { return false }
+        if isModifierOnly { return modifiers == other.modifiers }
+        return modifiers.sideAgnostic == other.modifiers.sideAgnostic
+    }
+
+    /// A modifier-only shortcut whose keys are all part of the other's combo
+    /// (e.g. right ⌥ and ⌥ + Middle Click): pressing the combo hits both.
+    func overlapsAsToggle(with other: Shortcut) -> Bool {
+        guard !isEmpty, !other.isEmpty, isModifierOnly != other.isModifierOnly else { return false }
+        let (alone, combo) = isModifierOnly ? (self, other) : (other, self)
+        return combo.modifiers.sideAgnostic.isSuperset(of: alone.modifiers.sideAgnostic)
+    }
+
+    static func mouseButtonName(_ button: UInt8) -> String {
+        switch button {
+        case 2: return "Middle Click"
+        case 3: return "Mouse Back"
+        case 4: return "Mouse Forward"
+        default: return "Mouse \(Int(button) + 1)"
+        }
     }
 
     static func keyName(for keyCode: UInt16) -> String {

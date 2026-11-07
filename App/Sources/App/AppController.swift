@@ -135,7 +135,7 @@ final class AppController {
         // Seeds lifetime statistics from the history before anything is added.
         _ = StatsStore.shared
 
-        hotkeys.update(hold: settings.holdShortcut, lock: settings.lockShortcut, pasteLast: settings.pasteLastShortcut)
+        hotkeys.update(hold: settings.holdShortcuts, lock: settings.lockShortcuts, pasteLast: settings.pasteLastShortcuts)
         startHotkeysIfPossible()
         configureRecorder()
         loadSelectedModel()
@@ -505,17 +505,17 @@ final class AppController {
 
     private func observeSettings() {
         withObservationTracking {
-            _ = settings.holdShortcut
-            _ = settings.lockShortcut
-            _ = settings.pasteLastShortcut
+            _ = settings.holdShortcuts
+            _ = settings.lockShortcuts
+            _ = settings.pasteLastShortcuts
             _ = settings.learnWords
             _ = settings.instantStart
             _ = settings.microphoneUID
         } onChange: {
             Task { @MainActor in
                 let c = AppController.shared
-                c.hotkeys.update(hold: c.settings.holdShortcut, lock: c.settings.lockShortcut,
-                                  pasteLast: c.settings.pasteLastShortcut)
+                c.hotkeys.update(hold: c.settings.holdShortcuts, lock: c.settings.lockShortcuts,
+                                  pasteLast: c.settings.pasteLastShortcuts)
                 c.configureRecorder()
                 if !c.settings.learnWords {
                     c.corrections.stop()
