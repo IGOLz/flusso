@@ -46,6 +46,9 @@ IDENTITY="$(security find-identity -v -p codesigning \
 if [[ ! -f build/engine/lib/libtranscribe.a ]] || [[ "$(lipo -archs build/engine/lib/libtranscribe.a)" != *x86_64* ]]; then
   ./scripts/build-engine.sh
 fi
+if [[ ! -f build/llm/lib/libflusso-llm.dylib ]]; then
+  ./scripts/build-llm.sh
+fi
 
 # Submits to Apple and fails unless the result is Accepted.
 notarize() {

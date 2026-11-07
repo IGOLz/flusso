@@ -142,6 +142,10 @@ final class AppController {
 
         models.onModelInstalled = { [weak self] model in
             guard let self else { return }
+            if model.kind == .formatting {
+                self.updateFormatter()
+                return
+            }
             if model.id == self.settings.selectedModelID || self.engineStatus == .noModel {
                 self.selectModel(model)
             }
@@ -150,7 +154,8 @@ final class AppController {
         observeSettings()
         observePermissions()
         corrections.onCorrection = { word in AppController.shared.offerLearnedWord(word) }
-        if settings.smartFormatting { SmartFormatter.prewarm() }
+        updateFormatter()
+        observeFormatting()
 
         for name in [NSApplication.didBecomeActiveNotification, NSApplication.didResignActiveNotification] {
             NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { _ in
@@ -180,7 +185,7 @@ final class AppController {
     #endif
 
     private func loadSelectedModel() {
-        let selected = ModelCatalog.model(id: settings.selectedModelID) ?? ModelCatalog.models[0]
+        let selected = ModelCatalog.models.first { $0.id == settings.selectedModelID } ?? ModelCatalog.models[0]
         let model: ModelInfo
         if models.isInstalled(selected) {
             model = selected
@@ -522,6 +527,29 @@ final class AppController {
                     OverlayController.shared.dismissLearnWord()
                 }
                 c.observeSettings()
+            }
+        }
+    }
+
+    /// Loads the local formatting model while it's selected, and frees its
+    /// memory (several GB) otherwise.
+    func updateFormatter() {
+        if settings.smartFormatting && settings.formattingEngine == .local {
+            LocalFormatter.shared.load()
+        } else {
+            LocalFormatter.shared.unload()
+            if settings.smartFormatting { SmartFormatter.prewarm() }
+        }
+    }
+
+    private func observeFormatting() {
+        withObservationTracking {
+            _ = settings.smartFormatting
+            _ = settings.formattingEngine
+        } onChange: {
+            Task { @MainActor in
+                AppController.shared.updateFormatter()
+                AppController.shared.observeFormatting()
             }
         }
     }

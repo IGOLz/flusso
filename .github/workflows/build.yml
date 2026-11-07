@@ -35,6 +35,9 @@ jobs:
         run: |
           if [[ ! -f build/engine/lib/libtranscribe.a ]]; then ./scripts/build-engine.sh; fi
 
+      - name: Smart formatting library (llama.cpp)
+        run: ./scripts/build-llm.sh
+
       - name: App (universal, unsigned)
         run: |
           xcodegen generate

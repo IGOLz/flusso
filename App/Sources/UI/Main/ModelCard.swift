@@ -64,7 +64,27 @@ struct ModelActions: View {
         self.compact = compact
     }
 
-    private var isSelected: Bool { settings.selectedModelID == model.id }
+    private var isSelected: Bool {
+        switch model.kind {
+        case .transcription: settings.selectedModelID == model.id
+        case .formatting: settings.smartFormatting && settings.formattingEngine == .local
+        }
+    }
+
+    private func use() {
+        switch model.kind {
+        case .transcription:
+            AppController.shared.selectModel(model)
+        case .formatting:
+            settings.formattingEngine = .local
+            settings.smartFormatting = true
+        }
+    }
+
+    private func delete() {
+        if model.kind == .formatting { LocalFormatter.shared.unload() }
+        manager.delete(model)
+    }
 
     var body: some View {
         Group {
@@ -117,11 +137,17 @@ struct ModelActions: View {
                     Spacer()
                     if !compact {
                         if isSelected {
-                            Text("Model in use").foregroundStyle(.secondary).font(.callout)
+                            if model.kind == .formatting {
+                                FormatterStatusLabel()
+                                Button("Delete", role: .destructive) { confirmDelete = true }
+                                    .glassButtonStyle()
+                            } else {
+                                Text("Model in use").foregroundStyle(.secondary).font(.callout)
+                            }
                         } else {
                             Button("Delete", role: .destructive) { confirmDelete = true }
                                 .glassButtonStyle()
-                            Button("Use This Model") { AppController.shared.selectModel(model) }
+                            Button("Use This Model", action: use)
                                 .glassProminentButtonStyle()
                         }
                     }
@@ -151,9 +177,33 @@ struct ModelActions: View {
             }
         }
         .confirmationDialog("Delete \(model.name)?", isPresented: $confirmDelete) {
-            Button("Delete", role: .destructive) { manager.delete(model) }
+            Button("Delete", role: .destructive, action: delete)
         } message: {
             Text("This frees up \(model.sizeDescription). You can download it again at any time.")
+        }
+    }
+}
+
+/// Whether the local formatting model is loaded.
+private struct FormatterStatusLabel: View {
+    private var formatter = LocalFormatter.shared
+
+    var body: some View {
+        switch formatter.status {
+        case .ready:
+            Text("Model in use").foregroundStyle(.secondary).font(.callout)
+        case .loading, .unloaded:
+            HStack(spacing: 6) {
+                ProgressView().controlSize(.small)
+                Text("Loading…")
+            }
+            .foregroundStyle(.secondary)
+            .font(.callout)
+        case .failed(let message):
+            Label(message, systemImage: "exclamationmark.triangle.fill")
+                .foregroundStyle(.red)
+                .font(.callout)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 }

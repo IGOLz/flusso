@@ -57,7 +57,7 @@ On macOS 14 and 15 everything works the same; the interface uses standard transl
 - **Several languages**: speak any of the languages you selected and switch freely between them.
 - **Snippets**: say a short phrase ("my calendly link") and Flusso inserts a longer text instead: a link, an address, a signature.
 - **Learns from your corrections**: fix a misheard name right after dictating it and Flusso offers to add it to the dictionary.
-- **Smart formatting** (macOS 26, Apple Intelligence): "at 5, no wait, at 6" becomes "at 6", and spoken numbered lists become real lists. It runs on device, only when you correct yourself or number a list, and keeps your original text if the edit would change your words.
+- **Smart formatting**: "at 5, no wait, at 6" becomes "at 6", and the tasks or items you list become bulleted or numbered lists. Choose Apple Intelligence's model (macOS 26), which runs only when you correct yourself or number a list, or download Gemma 4 (5 GB, Apple silicon), which reads every dictation in about a tenth of a second and also spots lists you don't number. Both run on your Mac and keep your original text if the edit would change your words.
 - **Styles by app**: formal in Mail, casual or very casual (no capitals) in Messages. Only capitals and punctuation change.
 - **Skip silence**: the bundled [Silero VAD](https://github.com/snakers4/silero-vad) transcribes only the parts where you speak, so a dictation with no speech inserts nothing.
 - **History with audio**: replay a dictation or transcribe it again with another model. **Paste last transcription** (`⌃⌘V`) pastes your latest dictation again.
@@ -84,7 +84,7 @@ Your voice never leaves the Mac: recording and transcription happen entirely on 
 - **Download a model** from [Hugging Face](https://huggingface.co/handy-computer), when you choose one. The file is checked against its SHA-256 checksum.
 - **Check for updates** on GitHub (`github.com/IGOLz/flusso/releases`), at launch and once a day unless you turn it off.
 
-Your history (the last 100 transcriptions, with their recordings unless you turn that off), statistics and models are stored in `~/Library/Application Support/Flusso`; settings, the dictionary and snippets in the app's preferences. Smart formatting uses Apple Intelligence's on-device model, never Private Cloud Compute. To learn from your corrections, Flusso reads the text field you dictated into for one minute after each dictation, through Accessibility; nothing it reads is stored unless you add a word.
+Your history (the last 100 transcriptions, with their recordings unless you turn that off), statistics and models are stored in `~/Library/Application Support/Flusso`; settings, the dictionary and snippets in the app's preferences. Smart formatting uses Apple Intelligence's on-device model, never Private Cloud Compute, or Gemma 4 running on your Mac. To learn from your corrections, Flusso reads the text field you dictated into for one minute after each dictation, through Accessibility; nothing it reads is stored unless you add a word.
 
 ## Build from source
 
@@ -97,7 +97,7 @@ cd flusso
 ./scripts/install.sh          # builds and installs /Applications/Flusso.app
 ```
 
-`scripts/build-engine.sh` builds [transcribe.cpp](https://github.com/handy-computer/transcribe.cpp) (Handy's engine, a submodule in `Vendor/`) as a universal static library with Metal. The Xcode project is generated from `project.yml` with XcodeGen.
+`scripts/build-engine.sh` builds [transcribe.cpp](https://github.com/handy-computer/transcribe.cpp) (Handy's engine, a submodule in `Vendor/`) as a universal static library with Metal. `scripts/build-llm.sh` builds [llama.cpp](https://github.com/ggml-org/llama.cpp) (also in `Vendor/`), for smart formatting with Gemma, into `libflusso-llm.dylib` behind the small C API in `Native/flusso-llm`: it carries its own copy of ggml and exports only that API, so it never clashes with transcribe.cpp's. The Xcode project is generated from `project.yml` with XcodeGen.
 
 <details>
 <summary><b>Project layout</b></summary>
@@ -107,11 +107,12 @@ cd flusso
 | `App/Sources/App` | Launch, orchestration (`AppController`), main window, updates |
 | `App/Sources/Audio` | 16 kHz microphone capture with ring buffer and pre-roll |
 | `App/Sources/Input` | Global shortcuts (`CGEventTap` on a dedicated thread) |
-| `App/Sources/Engine` | Swift wrapper around transcribe.cpp |
+| `App/Sources/Engine` | Swift wrappers around transcribe.cpp and llama.cpp |
+| `Native/flusso-llm` | C API over llama.cpp for smart formatting |
 | `App/Sources/Output` | Focused-field detection (Accessibility) and paste |
 | `App/Sources/Core` | Settings, models, history, dictionary, permissions |
 | `App/Sources/UI` | Recording overlay, main window, onboarding |
-| `scripts/` | Engine build, install, release, DMG and icon scripts |
+| `scripts/` | Engine and llama.cpp builds, install, release, DMG and icon scripts |
 | `docs/` | [Updates](docs/Updates.md) and [release issues](docs/ReleaseIssues.md) |
 
 </details>
@@ -138,8 +139,9 @@ Bug reports, ideas and pull requests are welcome: open an [issue](https://github
 
 - [Handy](https://github.com/cjpais/handy) and [transcribe.cpp](https://github.com/handy-computer/transcribe.cpp), the open-source engine Flusso runs on, and the dictionary-matching algorithm.
 - The Parakeet models published by [handy-computer](https://huggingface.co/handy-computer) (CC-BY-4.0), based on NVIDIA's Parakeet.
+- [llama.cpp](https://github.com/ggml-org/llama.cpp) and Google's [Gemma 4](https://huggingface.co/unsloth/gemma-4-E4B-it-GGUF) (Apache 2.0), for local smart formatting.
 - [Sparkle](https://sparkle-project.org), for in-app updates.
 
 ## License
 
-Flusso is released under the [MIT License](LICENSE). transcribe.cpp and the bundled Silero VAD model are MIT-licensed; the Parakeet models are CC-BY-4.0.
+Flusso is released under the [MIT License](LICENSE). transcribe.cpp and the bundled Silero VAD model are MIT-licensed; the Parakeet models are CC-BY-4.0. llama.cpp is MIT-licensed and Gemma 4 is Apache 2.0.

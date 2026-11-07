@@ -11,6 +11,9 @@ if [[ ! -f build/engine/lib/libtranscribe.a ]]; then
   command -v cmake >/dev/null || { echo "Install cmake and ninja: brew install cmake ninja"; exit 1; }
   ./scripts/build-engine.sh
 fi
+if [[ ! -f build/llm/lib/libflusso-llm.dylib ]]; then
+  ./scripts/build-llm.sh
+fi
 
 xcodegen generate
 xcodebuild -project Flusso.xcodeproj -scheme Flusso -configuration Release \

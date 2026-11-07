@@ -2,10 +2,13 @@ import CryptoKit
 import Foundation
 import Observation
 
-/// A downloadable transcription model (GGUF for transcribe.cpp), mirroring
-/// the entries in Handy's catalog.
+/// A downloadable model: a transcription model (GGUF for transcribe.cpp,
+/// mirroring Handy's catalog) or the local formatting model (llama.cpp).
 nonisolated struct ModelInfo: Identifiable, Hashable, Sendable {
+    enum Kind: Sendable { case transcription, formatting }
+
     let id: String
+    var kind: Kind = .transcription
     let name: String
     let summary: String
     let repository: String
@@ -55,7 +58,25 @@ enum ModelCatalog {
         ),
     ]
 
-    static func model(id: String) -> ModelInfo? { models.first { $0.id == id } }
+    /// Smart formatting's local model (see `LocalFormatter`).
+    static let formattingModel = ModelInfo(
+        id: "gemma-4-e4b",
+        kind: .formatting,
+        name: "Gemma 4 E4B",
+        summary: "Google's open model, run on this Mac by llama.cpp.",
+        repository: "unsloth/gemma-4-E4B-it-GGUF",
+        revision: "bfc15c382204943c3a8fff0c750b94ae2364d7a3",
+        filename: "gemma-4-E4B-it-Q4_K_M.gguf",
+        sizeBytes: 4_977_171_584,
+        sha256: "85a896a047553e842f25297ee5b031d64ff30147d9c4af17b1e4b394cd1fab87",
+        languages: "140 languages",
+        isRecommended: false
+    )
+
+    /// Every downloadable model; `models` lists the transcription ones.
+    static var all: [ModelInfo] { models + [formattingModel] }
+
+    static func model(id: String) -> ModelInfo? { all.first { $0.id == id } }
 }
 
 enum ModelState: Equatable {
@@ -118,7 +139,7 @@ final class ModelManager {
     }
 
     func refresh() {
-        for model in ModelCatalog.models where !(states[model.id]?.isBusy ?? false) {
+        for model in ModelCatalog.all where !(states[model.id]?.isBusy ?? false) {
             let url = fileURL(for: model)
             let size = (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int64) ?? nil
             states[model.id] = (size == model.sizeBytes) ? .downloaded : .notDownloaded

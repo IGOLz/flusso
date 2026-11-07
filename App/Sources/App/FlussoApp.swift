@@ -16,6 +16,11 @@ struct FlussoApp: App {
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationWillTerminate(_ notification: Notification) {
+        // ggml's Metal backend aborts at exit while a model is still loaded.
+        LocalFormatter.shared.unloadNow()
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         #if DEBUG
         if SelfTest.runIfRequested() { return }

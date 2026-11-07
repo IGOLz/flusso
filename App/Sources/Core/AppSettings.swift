@@ -33,8 +33,10 @@ final class AppSettings {
     /// Words to always spell as written (see `CustomDictionary`).
     var dictionary: [DictionaryEntry] { didSet { save(dictionary, "dictionary") } }
 
-    /// Self-corrections and spoken lists fixed with Apple's on-device model.
+    /// Self-corrections and spoken lists fixed by a language model.
     var smartFormatting: Bool { didSet { defaults.set(smartFormatting, forKey: "smartFormatting") } }
+    /// Which model: Apple's (built in) or Gemma (downloaded, see `LocalFormatter`).
+    var formattingEngine: FormattingEngine { didSet { defaults.set(formattingEngine.rawValue, forKey: "formattingEngine") } }
 
     /// Style for apps without their own (see `DictationStyle`).
     var defaultStyle: DictationStyle { didSet { defaults.set(defaultStyle.rawValue, forKey: "defaultStyle") } }
@@ -120,6 +122,7 @@ final class AppSettings {
         snippets = Self.load("snippets", from: defaults) ?? []
         learnWords = defaults.bool(forKey: "learnWords")
         smartFormatting = defaults.bool(forKey: "smartFormatting")
+        formattingEngine = defaults.string(forKey: "formattingEngine").flatMap(FormattingEngine.init(rawValue:)) ?? .apple
         defaultStyle = defaults.string(forKey: "defaultStyle").flatMap(DictationStyle.init(rawValue:)) ?? .asSpoken
         appStyles = Self.load("appStyles", from: defaults) ?? []
         declinedWords = Self.load("declinedWords", from: defaults) ?? []

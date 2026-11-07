@@ -8,8 +8,8 @@ options:
 
 settings:
   base:
-    MARKETING_VERSION: "0.4.0"
-    CURRENT_PROJECT_VERSION: "5"
+    MARKETING_VERSION: "0.5.0"
+    CURRENT_PROJECT_VERSION: "6"
     SWIFT_VERSION: "6.0"
     SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
     SWIFT_APPROACHABLE_CONCURRENCY: YES
@@ -43,8 +43,13 @@ targets:
         CODE_SIGN_ENTITLEMENTS: App/Flusso.entitlements
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         SWIFT_OBJC_BRIDGING_HEADER: App/Sources/Engine/Flusso-Bridging-Header.h
-        HEADER_SEARCH_PATHS: $(SRCROOT)/build/engine/include
-        LIBRARY_SEARCH_PATHS: $(SRCROOT)/build/engine/lib
+        HEADER_SEARCH_PATHS:
+          - $(SRCROOT)/build/engine/include
+          - $(SRCROOT)/build/llm/include
+        LIBRARY_SEARCH_PATHS:
+          - $(SRCROOT)/build/engine/lib
+          - $(SRCROOT)/build/llm/lib
+        LD_RUNPATH_SEARCH_PATHS: "@executable_path/../Frameworks"
         OTHER_LDFLAGS:
           - -ltranscribe
           - -lggml
@@ -60,6 +65,10 @@ targets:
           CODE_SIGN_INJECT_BASE_ENTITLEMENTS: NO
     dependencies:
       - package: Sparkle
+      # llama.cpp for smart formatting, with its own ggml (scripts/build-llm.sh).
+      - framework: build/llm/lib/libflusso-llm.dylib
+        embed: true
+        codeSign: true
       - sdk: Metal.framework
       - sdk: MetalKit.framework
       - sdk: Accelerate.framework

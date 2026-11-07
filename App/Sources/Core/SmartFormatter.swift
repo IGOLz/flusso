@@ -3,13 +3,25 @@ import Foundation
 import FoundationModels
 #endif
 
+/// Which model smart formatting uses.
+enum FormattingEngine: String, CaseIterable, Identifiable {
+    /// Apple Intelligence's on-device model (macOS 26+): only for dictations
+    /// with a correction or list cue.
+    case apple
+    /// Gemma 4 E4B on llama.cpp (`LocalFormatter`): every dictation, and it
+    /// also spots lists nobody numbered.
+    case local
+
+    var id: String { rawValue }
+}
+
 /// Fixes what a speech model can't: self-corrections ("at 5, no wait, at
-/// 6" → "at 6") and spoken numbered lists, with Apple's on-device language
-/// model (macOS 26+, Apple Intelligence on). Offline, like everything else.
+/// 6" → "at 6") and spoken lists, with a language model on this Mac.
 ///
-/// The model only runs when the transcript contains a cue for one of the two
-/// (most dictations don't, and pay no latency), and its answer is discarded
-/// unless it only removes or reorders the dictated words.
+/// Apple's model only runs when the transcript contains a cue for one of the
+/// two (most dictations don't, and pay no latency). The local model is fast
+/// enough to read every dictation. Either way, the answer is discarded unless
+/// it only removes or reorders the dictated words.
 enum SmartFormatter {
     enum Availability: Equatable {
         case available
@@ -21,6 +33,7 @@ enum SmartFormatter {
         case unavailable
     }
 
+    /// Apple Intelligence's availability.
     static var availability: Availability {
         #if canImport(FoundationModels)
         if #available(macOS 26, *) {
@@ -36,7 +49,7 @@ enum SmartFormatter {
         return .unsupportedOS
     }
 
-    /// Loads the model ahead of the first dictation that needs it.
+    /// Loads Apple's model ahead of the first dictation that needs it.
     static func prewarm() {
         #if canImport(FoundationModels)
         if #available(macOS 26, *), availability == .available {
@@ -46,8 +59,27 @@ enum SmartFormatter {
     }
 
     /// The formatted text, or `text` unchanged (no cue, model unavailable,
-    /// error, or an answer that changed the dictation too much).
+    /// error, or an answer that changed the dictation too much). With the
+    /// local model selected but not loaded yet, Apple's model stands in.
     static func format(_ text: String) async -> String {
+        if AppSettings.shared.formattingEngine == .local, LocalFormatter.shared.status == .ready {
+            return await formatLocally(text)
+        }
+        return await formatWithApple(text)
+    }
+
+    static func formatLocally(_ text: String) async -> String {
+        // "Ok." has nothing to fix.
+        guard words(text).count >= 3 else { return text }
+        let start = Date()
+        guard let answer = await LocalFormatter.shared.edit(text) else { return text }
+        let output = tidy(answer, like: text)
+        let accepted = output == text || isFaithful(output, to: text)
+        Log.app.info("Smart formatting (local): \(Int(Date().timeIntervalSince(start) * 1000)) ms, \(output == text ? "unchanged" : accepted ? "applied" : "rejected")")
+        return accepted ? output : text
+    }
+
+    private static func formatWithApple(_ text: String) async -> String {
         guard needsFormatting(text) else { return text }
         #if canImport(FoundationModels)
         if #available(macOS 26, *), availability == .available {
@@ -142,6 +174,17 @@ enum SmartFormatter {
            let last = out.last, last.isLetter || last.isNumber {
             out.append(end)
         }
+        // List items end the same way: no full stop if any item has none.
+        var lines = out.components(separatedBy: "\n")
+        let items = lines.indices.filter {
+            lines[$0].range(of: "^\\s*(\\d+[.)]|[-•])\\s+", options: .regularExpression) != nil
+        }
+        if items.count >= 2, !items.allSatisfy({ lines[$0].hasSuffix(".") }) {
+            for i in items where lines[i].hasSuffix(".") && !lines[i].hasSuffix("..") {
+                lines[i].removeLast()
+            }
+            out = lines.joined(separator: "\n")
+        }
         return out
     }
 
@@ -153,6 +196,23 @@ enum SmartFormatter {
         let inputWords = words(input), outputWords = words(withoutListMarkers(output))
         guard !outputWords.isEmpty, !inputWords.isEmpty else { return false }
         guard keepsCorrection(output, of: input) else { return false }
+        // Without a correction, a list may leave out the words that joined
+        // or numbered its items ("e la seconda è che…"), never a content
+        // word: "ma per il momento lascia…" must keep "momento". Text that
+        // isn't a list keeps every word. One stray word in 150 is tolerated.
+        if lastCorrection(in: input) == nil {
+            let isList = output.contains("\n")
+            var kept = Dictionary(outputWords.map { ($0, 1) }, uniquingKeysWith: +)
+            var lost = 0
+            for word in isList ? withoutPhrases(inputWords) : inputWords {
+                if let count = kept[word], count > 0 {
+                    kept[word] = count - 1
+                } else if !isList || !(droppableWords.contains(word) || functionWords.contains(word)) {
+                    lost += 1
+                }
+            }
+            guard lost <= inputWords.count / 150 else { return false }
+        }
         let available = Set(inputWords)
         // Includes numbers: "100 euros" must not become "999 euros".
         let novel = outputWords.filter { !available.contains($0) }.count
@@ -199,6 +259,56 @@ enum SmartFormatter {
         }
         let span = rest.prefix { !",.;:!?\n".contains($0) }
         return words(String(span))
+    }
+
+    /// Words a list may leave out: the "and"s between its items and the
+    /// spoken numbering ("first", "secondo"…).
+    private static let droppableWords: Set<String> = [
+        // Joining words
+        "e", "ed", "poi", "ma", "quindi", "infine", "and", "then", "but", "so", "also", "finally",
+        "y", "luego", "et", "puis", "und", "dann", "depois",
+        // Numbering
+        "primo", "secondo", "terzo", "quarto", "quinto", "sesto", "prima", "seconda", "terza", "quarta", "quinta",
+        "cosa",
+        "first", "second", "third", "fourth", "fifth", "sixth", "firstly", "secondly", "thirdly", "lastly",
+        "primero", "segundo", "tercero", "cuarto", "premièrement", "deuxièmement", "troisièmement",
+        "erstens", "zweitens", "drittens", "viertens", "primeiro", "terceiro",
+    ]
+
+    /// Articles, prepositions and the like, which a list may leave out with
+    /// its numbering ("la seconda è che…", "per prima cosa…").
+    private static let functionWords: Set<String> = [
+        "il", "lo", "la", "i", "gli", "le", "l", "un", "una", "è", "che", "di", "a", "per", "da",
+        "al", "alla", "ai", "alle", "del", "della",
+        "the", "an", "is", "are", "that", "it", "s", "to", "of", "for",
+        "el", "los", "las", "es", "que", "de", "les", "est", "der", "die", "das", "ist", "dass",
+        "o", "os", "as", "é",
+    ]
+
+    /// Joining phrases a list may leave out ("alla fine controlli…"), and
+    /// numbering said with a number ("punto due"). A number on its own is
+    /// a quantity: "two tickets" keeps its "two".
+    private static let droppablePhrases: [[String]] = [
+        ["alla", "fine"], ["per", "finire"], ["dopo", "di", "che"], ["in", "seguito"],
+        ["prima", "di", "tutto"], ["per", "prima", "cosa"], ["come", "prima", "cosa"],
+        ["after", "that"], ["in", "the", "end"], ["first", "of", "all"],
+    ]
+        + ["uno", "due", "tre", "quattro", "cinque", "sei", "1", "2", "3", "4", "5", "6"].map { ["punto", $0] }
+        + ["one", "two", "three", "four", "five", "six", "1", "2", "3", "4", "5", "6"].map { ["number", $0] }
+
+    /// `words` without the droppable phrases.
+    private static func withoutPhrases(_ words: [String]) -> [String] {
+        var result: [String] = []
+        var i = 0
+        outer: while i < words.count {
+            for phrase in droppablePhrases where words[i...].starts(with: phrase) {
+                i += phrase.count
+                continue outer
+            }
+            result.append(words[i])
+            i += 1
+        }
+        return result
     }
 
     /// "1. Milk" → "Milk": list numbers are added on purpose.

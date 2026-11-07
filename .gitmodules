@@ -1,3 +1,6 @@
 [submodule "Vendor/transcribe.cpp"]
 	path = Vendor/transcribe.cpp
 	url = https://github.com/handy-computer/transcribe.cpp
+[submodule "Vendor/llama.cpp"]
+	path = Vendor/llama.cpp
+	url = https://github.com/ggml-org/llama.cpp

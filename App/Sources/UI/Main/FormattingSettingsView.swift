@@ -55,25 +55,52 @@ struct FormattingSettingsView: View {
 
     // MARK: Smart formatting
 
+    private var formatter = LocalFormatter.shared
+    private var models = ModelManager.shared
+
+    private var usesLocal: Bool { LocalFormatter.isSupported && settings.formattingEngine == .local }
+
+    /// The selected model can format right now.
+    private var isReady: Bool {
+        usesLocal ? formatter.status == .ready : availability == .available
+    }
+
     @ViewBuilder
     private var smartFormatting: some View {
         SectionCard(title: "Smart Formatting",
-                    footer: "Uses Apple Intelligence’s on-device model, only when you correct yourself or number a list, so most dictations aren’t slowed down. If its edit changes your words, Flusso keeps the original.") {
+                    footer: "Runs on this Mac, nothing is sent anywhere. If an edit changes your words, Flusso keeps the original.") {
             ToggleRow(symbol: "arrow.uturn.backward", color: .purple,
                       title: "Fix self-corrections and lists",
-                      subtitle: "“At 5, no wait, at 6” becomes “At 6”. “First milk, second bread” becomes a numbered list.",
+                      subtitle: "“At 5, no wait, at 6” becomes “At 6”, and the tasks or items you list become a bulleted or numbered list.",
                       isOn: $settings.smartFormatting)
-                .disabled(availability != .available)
-            if settings.smartFormatting && availability == .available {
+                .disabled(!usesLocal && availability != .available)
+            if LocalFormatter.isSupported {
+                RowDivider()
+                SettingRow(symbol: "cpu", color: .indigo, title: "Model",
+                           subtitle: usesLocal ? localSummary : appleSummary) {
+                    Picker("Model", selection: $settings.formattingEngine) {
+                        Text("Apple Intelligence").tag(FormattingEngine.apple)
+                        Text("Gemma 4 (local)").tag(FormattingEngine.local)
+                    }
+                    .labelsHidden()
+                    .fixedSize()
+                }
+                if usesLocal {
+                    RowDivider()
+                    localModel
+                }
+            }
+            if settings.smartFormatting && isReady {
                 RowDivider()
                 tester
             }
         }
+        .animation(.snappy, value: settings.formattingEngine)
 
-        if let message = unavailableMessage {
+        if !usesLocal, let message = unavailableMessage {
             NoticeCard(symbol: "exclamationmark.triangle.fill", color: .orange,
                        title: "Apple Intelligence not available",
-                       message: message) {
+                       message: message + (LocalFormatter.isSupported ? " Or choose Gemma 4, which runs on any Mac with Apple silicon." : "")) {
                 if availability == .appleIntelligenceOff {
                     Button("Open Settings") {
                         if let url = URL(string: "x-apple.systempreferences:com.apple.Siri-Settings.extension") {
@@ -84,6 +111,36 @@ struct FormattingSettingsView: View {
                 }
             }
         }
+    }
+
+    private var appleSummary: String {
+        "Built into macOS 26 and later. Runs only when you correct yourself or number a list aloud (“first… second…”), so most dictations aren’t slowed down."
+    }
+
+    private var localSummary: String {
+        "More accurate: also spots lists you don’t number, in any language. Reads every dictation (about 0.1 s for a sentence, 1 s for a long list)."
+    }
+
+    /// Gemma's download state, size and memory use.
+    private var localModel: some View {
+        let model = ModelCatalog.formattingModel
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline, spacing: 14) {
+                Text(model.name).fontWeight(.medium)
+                Label(model.sizeDescription, systemImage: "internaldrive")
+                Label("About 6 GB of memory while in use", systemImage: "memorychip")
+            }
+            .font(.callout)
+            .foregroundStyle(.secondary)
+            ModelActions(model: model)
+            if !models.isInstalled(model), availability == .available {
+                Text("Until it’s downloaded, Apple Intelligence formats your dictations.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.horizontal, DS.rowHPadding)
+        .padding(.vertical, 12)
     }
 
     private var unavailableMessage: String? {
@@ -104,7 +161,8 @@ struct FormattingSettingsView: View {
                     .foregroundStyle(.secondary)
                     .frame(width: 18)
                 TextField("Try it", text: $sample,
-                          prompt: Text("Try it: Call me at 5, no wait, at 6."))
+                          prompt: Text(usesLocal ? "Try it: Here’s the plan, book the flights, and then call the hotel."
+                                                 : "Try it: Call me at 5, no wait, at 6."))
                     .textFieldStyle(.plain)
                     .onSubmit(run)
                     .disabled(formatting)

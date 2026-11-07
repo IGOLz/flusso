@@ -9,6 +9,10 @@ import Foundation
 enum SelfTest {
     static func runIfRequested() -> Bool {
         let args = ProcessInfo.processInfo.arguments
+        if let i = args.firstIndex(of: "-formatTest"), i + 1 < args.count {
+            runFormatTest(casesFile: args[i + 1])
+            return true
+        }
         guard let i = args.firstIndex(of: "-selfTest"), i + 2 < args.count else { return false }
         let modelPath = args[i + 1]
         let input = args[i + 2]
@@ -52,6 +56,35 @@ enum SelfTest {
             }
         }
         return true
+    }
+
+    /// `Flusso -formatTest <file>`: smart formatting with the local model
+    /// (downloaded already) on each line of the file.
+    private static func runFormatTest(casesFile: String) {
+        Task {
+            var t = Date()
+            LocalFormatter.shared.load()
+            while LocalFormatter.shared.status == .loading { try? await Task.sleep(for: .milliseconds(20)) }
+            guard LocalFormatter.shared.status == .ready else {
+                print("FORMATTEST load failed: \(LocalFormatter.shared.status)")
+                exit(1)
+            }
+            print("FORMATTEST load: \(Int(Date().timeIntervalSince(t) * 1000)) ms")
+            let lines = (try? String(contentsOfFile: casesFile, encoding: .utf8))?
+                .components(separatedBy: "\n").filter { !$0.isEmpty } ?? []
+            for line in lines {
+                t = Date()
+                let output = await SmartFormatter.formatLocally(line)
+                let ms = Int(Date().timeIntervalSince(t) * 1000)
+                let answer = await LocalFormatter.shared.edit(line) ?? "(nil)"
+                let verdict = output == line ? (answer.trimmingCharacters(in: .whitespacesAndNewlines) == line ? "UNCHANGED" : "REJECTED") : "APPLIED"
+                print("### \(verdict) \(ms) ms\n\(output)")
+                if verdict == "REJECTED" { print("--- model said:\n\(answer)") }
+                print("")
+            }
+            LocalFormatter.shared.unloadNow()
+            exit(0)
+        }
     }
 
     private static func readAudio(_ url: URL) throws -> [Float] {
