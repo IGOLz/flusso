@@ -78,6 +78,7 @@ final class AppController {
     @ObservationIgnored private let inserter = TextInserter()
     @ObservationIgnored private let sounds = Sounds()
     @ObservationIgnored private let gate = DictationGate()
+    @ObservationIgnored private let corrections = CorrectionWatcher()
     @ObservationIgnored private var hotkeys: HotkeyMonitor!
 
     @ObservationIgnored private let settings = AppSettings.shared
@@ -148,6 +149,7 @@ final class AppController {
 
         observeSettings()
         observePermissions()
+        corrections.onCorrection = { word in AppController.shared.offerLearnedWord(word) }
 
         for name in [NSApplication.didBecomeActiveNotification, NSApplication.didResignActiveNotification] {
             NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { _ in
@@ -278,6 +280,8 @@ final class AppController {
     // MARK: - Recording
 
     private func beginRecording(_ mode: RecordingMode, at time: TimeInterval) {
+        // Dictating again: the previous text is done being edited.
+        corrections.stop()
         recordingStartedAt = time
         lockedHoldDownAt = nil
         recordingCounter += 1
@@ -335,7 +339,9 @@ final class AppController {
                 return
             }
             let appName = NSWorkspace.shared.frontmostApplication?.localizedName
-            let outcome = await inserter.insert(text, options: settings.insertOptions)
+            let result = await inserter.insertReturningField(text, options: settings.insertOptions)
+            let outcome = result.outcome
+            if let field = result.field, settings.learnWords { corrections.watch(field, inserted: text) }
             StatsStore.shared.record(text: text, seconds: duration)
             HistoryStore.shared.add(HistoryItem(
                 text: text, date: Date(), wasPasted: outcome == .pasted,
@@ -404,6 +410,27 @@ final class AppController {
         }
     }
 
+    // MARK: - Learning words
+
+    private func offerLearnedWord(_ word: LearnedWord) {
+        guard settings.learnWords, phase == .idle else { return }
+        let known = settings.dictionary.contains { $0.term.caseInsensitiveCompare(word.term) == .orderedSame }
+            || settings.declinedWords.contains { $0.caseInsensitiveCompare(word.term) == .orderedSame }
+        guard !known else { return }
+        Log.app.info("Correction spotted, offering it for the dictionary")
+        OverlayController.shared.showLearnWord(word)
+    }
+
+    /// The user accepted (or declined) a word from `CorrectionWatcher`.
+    func resolveLearnedWord(_ word: LearnedWord, add: Bool) {
+        if add {
+            guard !settings.dictionary.contains(where: { $0.term.caseInsensitiveCompare(word.term) == .orderedSame }) else { return }
+            settings.dictionary.append(DictionaryEntry(term: word.term, spokenAs: word.spokenAs))
+        } else if !settings.declinedWords.contains(word.term) {
+            settings.declinedWords.append(word.term)
+        }
+    }
+
     // MARK: - Paste last
 
     /// Pastes the most recent transcription again where the user is typing
@@ -469,6 +496,7 @@ final class AppController {
             _ = settings.holdShortcut
             _ = settings.lockShortcut
             _ = settings.pasteLastShortcut
+            _ = settings.learnWords
             _ = settings.instantStart
             _ = settings.microphoneUID
         } onChange: {
@@ -477,6 +505,10 @@ final class AppController {
                 c.hotkeys.update(hold: c.settings.holdShortcut, lock: c.settings.lockShortcut,
                                   pasteLast: c.settings.pasteLastShortcut)
                 c.configureRecorder()
+                if !c.settings.learnWords {
+                    c.corrections.stop()
+                    OverlayController.shared.dismissLearnWord()
+                }
                 c.observeSettings()
             }
         }

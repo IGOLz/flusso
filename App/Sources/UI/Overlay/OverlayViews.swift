@@ -22,6 +22,13 @@ struct OverlayRootView: View {
                     .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .global) }) { model.toastFrame = $0 }
                     .transition(appearTransition)
             }
+
+            if case .learnWord(let word) = model.state {
+                LearnWordToast(word: word, model: model)
+                    .id(model.toastID)
+                    .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .global) }) { model.toastFrame = $0 }
+                    .transition(appearTransition)
+            }
         }
         .padding(.bottom, OverlayLayout.shapeBottomInset)
         .frame(width: OverlayLayout.panelSize.width, height: OverlayLayout.panelSize.height)
@@ -255,9 +262,54 @@ struct ToastView: View {
     }
 }
 
+// MARK: - Dictionary suggestion toast
+
+struct LearnWordToast: View {
+    let word: LearnedWord
+    let model: OverlayModel
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Add “\(word.term)” to your dictionary?")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(word.spokenAs.map { "You corrected “\($0)”." } ?? "You corrected its spelling.")
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(.white.opacity(0.62))
+                    .lineLimit(2)
+                    .truncationMode(.tail)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            CopyButton(copied: model.toastCopied, progress: model.toastProgress,
+                       title: "Add", doneTitle: "Added") {
+                OverlayController.shared.addLearnedWord()
+            }
+        }
+        .padding(.leading, 14)
+        .padding(.trailing, 10)
+        .padding(.vertical, 11)
+        .frame(width: OverlayLayout.toastWidth)
+        .overlay(alignment: .topTrailing) {
+            CloseButton { OverlayController.shared.dismissToast() }
+                .offset(x: 6, y: -6)
+                .opacity(model.toastHovered ? 1 : 0)
+                .animation(.easeOut(duration: 0.15), value: model.toastHovered)
+        }
+        .modifier(OverlayChrome(shape: RoundedRectangle(cornerRadius: OverlayLayout.toastCornerRadius,
+                                                       style: .continuous)))
+    }
+}
+
 private struct CopyButton: View {
     let copied: Bool
     let progress: Double
+    var title = "Copy"
+    var doneTitle = "Copied"
     let action: () -> Void
 
     var body: some View {
@@ -275,7 +327,7 @@ private struct CopyButton: View {
                 }
                 .frame(width: 12, height: 12)
 
-                Text(copied ? "Copied" : "Copy")
+                Text(copied ? doneTitle : title)
                     .font(.system(size: 12, weight: .semibold))
                     .contentTransition(.opacity)
             }
@@ -288,7 +340,7 @@ private struct CopyButton: View {
         }
         .buttonStyle(PressScaleStyle())
         .animation(.spring(response: 0.3, dampingFraction: 0.75), value: copied)
-        .accessibilityLabel(copied ? "Copied" : "Copy")
+        .accessibilityLabel(copied ? doneTitle : title)
     }
 }
 

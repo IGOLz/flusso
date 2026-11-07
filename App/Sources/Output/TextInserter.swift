@@ -18,6 +18,13 @@ struct InsertOptions {
     var trailingSpace = false
 }
 
+/// AX elements are CF objects, safe to pass between tasks.
+struct InsertResult: @unchecked Sendable {
+    let outcome: InsertOutcome
+    /// The text field the text went into, when known.
+    let field: AXUIElement?
+}
+
 enum InsertOutcome: Equatable {
     case pasted
     /// Nothing editable had focus: the caller shows the "not pasted" toast.
@@ -48,9 +55,14 @@ final class TextInserter {
 
     /// The insertion in progress: the next one waits for it, so a long typed
     /// text and a new dictation never interleave.
-    private var lastInsertion: Task<InsertOutcome, Never>?
+    private var lastInsertion: Task<InsertResult, Never>?
 
     func insert(_ text: String, options: InsertOptions) async -> InsertOutcome {
+        await insertReturningField(text, options: options).outcome
+    }
+
+    /// Also returns the text field the text went into, when it is known.
+    func insertReturningField(_ text: String, options: InsertOptions) async -> InsertResult {
         let previous = lastInsertion
         let task = Task {
             _ = await previous?.value
@@ -60,15 +72,17 @@ final class TextInserter {
         return await task.value
     }
 
-    private func performInsert(_ text: String, options: InsertOptions) async -> InsertOutcome {
+    private func performInsert(_ text: String, options: InsertOptions) async -> InsertResult {
         let focus = inspectFocus()
         var output = text
+        var field: AXUIElement?
         switch focus {
         case .notEditable:
             Log.paste.info("No editable field focused")
-            return .noFocusedField
+            return InsertResult(outcome: .noFocusedField, field: nil)
         case .editable(let element):
             output = addLeadingSpaceIfNeeded(text, element: element)
+            field = element
         case .unknown:
             break
         }
@@ -79,7 +93,7 @@ final class TextInserter {
         case .paste: await paste(output, restoreClipboard: options.restoreClipboard)
         case .type: await type(output)
         }
-        return .pasted
+        return InsertResult(outcome: .pasted, field: field)
     }
 
     // MARK: - Focus inspection

@@ -24,6 +24,11 @@ final class AppSettings {
     /// Words to always spell as written (see `CustomDictionary`).
     var dictionary: [DictionaryEntry] { didSet { save(dictionary, "dictionary") } }
 
+    /// Offer words the user corrects after a dictation for the dictionary.
+    var learnWords: Bool { didSet { defaults.set(learnWords, forKey: "learnWords") } }
+    /// Suggestions the user declined: never offered again.
+    var declinedWords: [String] { didSet { save(declinedWords, "declinedWords") } }
+
     /// Voice shortcuts that expand into longer text (see `Snippets`).
     var snippets: [Snippet] { didSet { save(snippets, "snippets") } }
 
@@ -75,6 +80,7 @@ final class AppSettings {
             "trailingSpace": false,
             "removeFillerWords": true,
             "keepAudio": true,
+            "learnWords": true,
             "hasCompletedOnboarding": false,
         ])
         #if DEBUG
@@ -89,6 +95,8 @@ final class AppSettings {
         spokenLanguages = Self.load("spokenLanguages", from: defaults) ?? ["en"]
         dictionary = Self.load("dictionary", from: defaults) ?? []
         snippets = Self.load("snippets", from: defaults) ?? []
+        learnWords = defaults.bool(forKey: "learnWords")
+        declinedWords = Self.load("declinedWords", from: defaults) ?? []
         selectedModelID = defaults.string(forKey: "selectedModelID") ?? ModelCatalog.defaultModelID
         instantStart = defaults.bool(forKey: "instantStart")
         microphoneUID = defaults.string(forKey: "microphoneUID")

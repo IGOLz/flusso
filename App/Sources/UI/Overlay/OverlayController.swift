@@ -50,6 +50,16 @@ final class OverlayController {
         setState(.notPasted(text))
     }
 
+    /// Offers a corrected word for the dictionary, unless the widget is busy.
+    func showLearnWord(_ word: LearnedWord) {
+        guard model.state == .hidden else { return }
+        model.toastID += 1
+        model.toastProgress = 1
+        model.toastCopied = false
+        model.toastHovered = false
+        setState(.learnWord(word))
+    }
+
     /// Starts the visual demo if the app was launched with `-overlayDemo`.
     static func runDemoIfRequested() {
         _ = shared   // init starts the demo when the flag is present
@@ -69,7 +79,26 @@ final class OverlayController {
         }
     }
 
+    func addLearnedWord() {
+        guard case .learnWord(let word) = model.state, !model.toastCopied else { return }
+        AppController.shared.resolveLearnedWord(word, add: true)
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { model.toastCopied = true }
+        let id = model.toastID
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [self] in
+            if model.toastID == id, model.state.isToast { hide() }
+        }
+    }
+
+    /// Hides a pending dictionary suggestion without declining it.
+    func dismissLearnWord() {
+        if case .learnWord = model.state { hide() }
+    }
+
     func dismissToast() {
+        // Closing the suggestion means "no": it isn't offered again.
+        if case .learnWord(let word) = model.state, !model.toastCopied {
+            AppController.shared.resolveLearnedWord(word, add: false)
+        }
         if model.state.isToast { hide() }
     }
 
@@ -182,7 +211,9 @@ final class OverlayController {
         updateMouseHandling()
 
         guard model.state.isToast, !model.toastHovered, !model.toastCopied else { return }
-        model.toastProgress = max(0, model.toastProgress - dt / OverlayLayout.toastDuration)
+        let duration: TimeInterval
+        if case .learnWord = model.state { duration = OverlayLayout.learnToastDuration } else { duration = OverlayLayout.toastDuration }
+        model.toastProgress = max(0, model.toastProgress - dt / duration)
         if model.toastProgress <= 0 { hide() }
     }
 }

@@ -49,6 +49,23 @@ struct DictionaryView: View {
             if !entries.wrappedValue.isEmpty {
                 tester
             }
+
+            SectionCard(title: "Learning") {
+                ToggleRow(symbol: "sparkles", color: .purple,
+                          title: "Learn from your corrections",
+                          subtitle: "When you fix a word right after dictating it, Flusso offers to add it here. It reads the text field only for a minute after each dictation.",
+                          isOn: $settings.learnWords)
+                if !settings.declinedWords.isEmpty {
+                    RowDivider()
+                    SettingRow(symbol: "hand.raised.fill", color: .gray,
+                               title: settings.declinedWords.count == 1 ? "1 declined word"
+                                   : "\(settings.declinedWords.count) declined words",
+                               subtitle: "Words you closed without adding aren’t suggested again.") {
+                        Button("Forget") { settings.declinedWords = [] }
+                            .glassButtonStyle()
+                    }
+                }
+            }
         }
         .searchable(text: $query, placement: .toolbar, prompt: "Search Dictionary")
     }

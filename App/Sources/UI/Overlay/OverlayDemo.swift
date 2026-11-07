@@ -24,6 +24,11 @@ enum OverlayDemo {
                 try? await Task.sleep(for: .seconds(7))
                 log("hidden"); overlay.hide()
                 try? await Task.sleep(for: .seconds(1.5))
+                log("learnWord")
+                overlay.showLearnWord(LearnedWord(term: "SwiftUI", spokenAs: "swift you eye"))
+                try? await Task.sleep(for: .seconds(4))
+                log("hidden"); overlay.hide()
+                try? await Task.sleep(for: .seconds(1.5))
             }
         }
     }

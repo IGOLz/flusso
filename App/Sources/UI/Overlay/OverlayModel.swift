@@ -7,6 +7,8 @@ enum OverlayState: Equatable {
     case recording(RecordingMode)
     case transcribing
     case notPasted(String)
+    /// "Add to dictionary?" after the user corrected a dictated word.
+    case learnWord(LearnedWord)
 
     var isPill: Bool {
         switch self {
@@ -16,14 +18,16 @@ enum OverlayState: Equatable {
     }
 
     var isToast: Bool {
-        if case .notPasted = self { return true }
-        return false
+        switch self {
+        case .notPasted, .learnWord: true
+        default: false
+        }
     }
 
     /// States where the widget has clickable controls.
     var isInteractive: Bool {
         switch self {
-        case .recording(.locked), .notPasted: true
+        case .recording(.locked), .notPasted, .learnWord: true
         default: false
         }
     }
@@ -75,4 +79,6 @@ enum OverlayLayout {
     static let toastWidth: CGFloat = 330
     static let toastCornerRadius: CGFloat = 14
     static let toastDuration: TimeInterval = 5
+    /// The dictionary suggestion stays longer: it appears while typing.
+    static let learnToastDuration: TimeInterval = 9
 }
