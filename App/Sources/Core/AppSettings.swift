@@ -27,6 +27,16 @@ final class AppSettings {
     /// Self-corrections and spoken lists fixed with Apple's on-device model.
     var smartFormatting: Bool { didSet { defaults.set(smartFormatting, forKey: "smartFormatting") } }
 
+    /// Style for apps without their own (see `DictationStyle`).
+    var defaultStyle: DictationStyle { didSet { defaults.set(defaultStyle.rawValue, forKey: "defaultStyle") } }
+    /// Styles chosen for specific apps.
+    var appStyles: [AppStyle] { didSet { save(appStyles, "appStyles") } }
+
+    func style(forApp bundleID: String?) -> DictationStyle {
+        guard let bundleID else { return defaultStyle }
+        return appStyles.first { $0.bundleID == bundleID }?.style ?? defaultStyle
+    }
+
     /// Offer words the user corrects after a dictation for the dictionary.
     var learnWords: Bool { didSet { defaults.set(learnWords, forKey: "learnWords") } }
     /// Suggestions the user declined: never offered again.
@@ -101,6 +111,8 @@ final class AppSettings {
         snippets = Self.load("snippets", from: defaults) ?? []
         learnWords = defaults.bool(forKey: "learnWords")
         smartFormatting = defaults.bool(forKey: "smartFormatting")
+        defaultStyle = defaults.string(forKey: "defaultStyle").flatMap(DictationStyle.init(rawValue:)) ?? .asSpoken
+        appStyles = Self.load("appStyles", from: defaults) ?? []
         declinedWords = Self.load("declinedWords", from: defaults) ?? []
         selectedModelID = defaults.string(forKey: "selectedModelID") ?? ModelCatalog.defaultModelID
         instantStart = defaults.bool(forKey: "instantStart")

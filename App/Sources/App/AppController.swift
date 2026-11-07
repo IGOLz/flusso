@@ -334,7 +334,10 @@ final class AppController {
             return
         }
         do {
-            let text = try await transcribeText(samples)
+            let base = try await transcribeText(samples)
+            // The style of the app the text goes into, checked right before inserting.
+            let bundleID = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+            let text = await finish(base, style: settings.style(forApp: bundleID))
             guard !text.isEmpty else {
                 finishUI(id: id, notPasted: nil)
                 return
@@ -355,11 +358,17 @@ final class AppController {
         }
     }
 
-    /// Audio → final text: transcription, cleanup, snippets and dictionary.
+    /// Audio → text: transcription, cleanup and smart formatting.
     private func transcribeText(_ samples: [Float]) async throws -> String {
         let raw = try await engine.transcribe(samples, language: nil, skipSilence: settings.skipSilence)
-        var cleaned = TextCleanup.clean(raw, removeFillers: settings.removeFillerWords)
-        if settings.smartFormatting { cleaned = await SmartFormatter.format(cleaned) }
+        let cleaned = TextCleanup.clean(raw, removeFillers: settings.removeFillerWords)
+        return settings.smartFormatting ? await SmartFormatter.format(cleaned) : cleaned
+    }
+
+    /// The app's style, then snippets and dictionary (after the style, so
+    /// they keep their exact spelling).
+    private func finish(_ text: String, style: DictationStyle) async -> String {
+        let cleaned = style.apply(text)
         let entries = settings.dictionary
         let snippets = settings.snippets
         guard !entries.isEmpty || !snippets.isEmpty else { return cleaned }
@@ -389,7 +398,8 @@ final class AppController {
         do {
             let url = HistoryAudio.url(for: fileName)
             let samples = try await Task.detached(priority: .userInitiated) { try HistoryAudio.read(url) }.value
-            let text = try await transcribeText(samples)
+            // The app it was dictated into isn't known any more: default style.
+            let text = await finish(try await transcribeText(samples), style: settings.defaultStyle)
             if text.isEmpty {
                 NSSound.beep()
             } else {
