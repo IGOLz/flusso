@@ -27,7 +27,7 @@ struct MainView: View {
 }
 
 enum SidebarPage: String, Hashable, CaseIterable, Identifiable {
-    case home, history, dictionary, shortcuts, microphone, languages, models, general
+    case home, history, dictionary, snippets, shortcuts, microphone, languages, models, general
 
     var id: String { rawValue }
 
@@ -36,6 +36,7 @@ enum SidebarPage: String, Hashable, CaseIterable, Identifiable {
         case .home: "Home"
         case .history: "History"
         case .dictionary: "Dictionary"
+        case .snippets: "Snippets"
         case .shortcuts: "Shortcuts"
         case .microphone: "Microphone"
         case .languages: "Languages"
@@ -49,6 +50,7 @@ enum SidebarPage: String, Hashable, CaseIterable, Identifiable {
         case .home: "house.fill"
         case .history: "clock.fill"
         case .dictionary: "character.book.closed.fill"
+        case .snippets: "text.bubble.fill"
         case .shortcuts: "keyboard.fill"
         case .microphone: "mic.fill"
         case .languages: "globe"
@@ -62,6 +64,7 @@ enum SidebarPage: String, Hashable, CaseIterable, Identifiable {
         case .home: .blue
         case .history: .orange
         case .dictionary: .purple
+        case .snippets: .green
         case .shortcuts: .gray
         case .microphone: .pink
         case .languages: .teal
@@ -70,7 +73,7 @@ enum SidebarPage: String, Hashable, CaseIterable, Identifiable {
         }
     }
 
-    static let main: [SidebarPage] = [.home, .history, .dictionary]
+    static let main: [SidebarPage] = [.home, .history, .dictionary, .snippets]
     static let settings: [SidebarPage] = [.shortcuts, .microphone, .languages, .models, .general]
 }
 
@@ -159,6 +162,7 @@ struct MainSplitView: View {
         case .home: HomeView(selection: $selection)
         case .history: HistoryView()
         case .dictionary: DictionaryView()
+        case .snippets: SnippetsView()
         case .shortcuts: ShortcutsSettingsView()
         case .microphone: MicrophoneSettingsView()
         case .languages: LanguagesSettingsView()

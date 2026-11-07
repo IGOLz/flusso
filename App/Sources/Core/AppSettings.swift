@@ -24,6 +24,9 @@ final class AppSettings {
     /// Words to always spell as written (see `CustomDictionary`).
     var dictionary: [DictionaryEntry] { didSet { save(dictionary, "dictionary") } }
 
+    /// Voice shortcuts that expand into longer text (see `Snippets`).
+    var snippets: [Snippet] { didSet { save(snippets, "snippets") } }
+
     var selectedModelID: String { didSet { defaults.set(selectedModelID, forKey: "selectedModelID") } }
 
     /// Keep the microphone stream open so recording starts instantly and the
@@ -78,6 +81,7 @@ final class AppSettings {
         pasteLastShortcut = useDefaults ? .pasteLastDefault : Self.load("pasteLastShortcut", from: defaults) ?? .pasteLastDefault
         spokenLanguages = Self.load("spokenLanguages", from: defaults) ?? ["en"]
         dictionary = Self.load("dictionary", from: defaults) ?? []
+        snippets = Self.load("snippets", from: defaults) ?? []
         selectedModelID = defaults.string(forKey: "selectedModelID") ?? ModelCatalog.defaultModelID
         instantStart = defaults.bool(forKey: "instantStart")
         microphoneUID = defaults.string(forKey: "microphoneUID")

@@ -330,8 +330,9 @@ final class AppController {
             let raw = try await engine.transcribe(samples, language: nil)
             let cleaned = TextCleanup.clean(raw, removeFillers: settings.removeFillerWords)
             let entries = settings.dictionary
-            let text = entries.isEmpty ? cleaned : await Task.detached(priority: .userInitiated) {
-                CustomDictionary.apply(cleaned, entries: entries)
+            let snippets = settings.snippets
+            let text = entries.isEmpty && snippets.isEmpty ? cleaned : await Task.detached(priority: .userInitiated) {
+                Snippets.expand(cleaned, snippets: snippets) { CustomDictionary.apply($0, entries: entries) }
             }.value
             guard !text.isEmpty else {
                 finishUI(id: id, notPasted: nil)
