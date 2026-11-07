@@ -383,6 +383,19 @@ struct GeneralSettingsView: View {
                           isOn: $settings.removeFillerWords)
             }
 
+            SectionCard(title: "History",
+                        footer: "Recordings of your last \(HistoryStore.limit) dictations stay on this Mac, in Application Support › Flusso › Audio. Turning this off deletes them.") {
+                ToggleRow(symbol: "waveform", color: .orange,
+                          title: "Keep audio recordings",
+                          subtitle: "Replay a dictation from History, or transcribe it again with another model.",
+                          isOn: $settings.keepAudio)
+            }
+            .onChange(of: settings.keepAudio) { _, keep in
+                guard !keep else { return }
+                AudioPlayback.shared.stop()
+                HistoryStore.shared.deleteAllAudio()
+            }
+
             // Same settings as `UpdateSettingsSection` (AppUpdater.swift), in
             // this page's card style.
             SectionCard(title: "Updates",

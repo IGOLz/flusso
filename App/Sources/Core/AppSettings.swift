@@ -43,6 +43,9 @@ final class AppSettings {
     var insertionMethod: InsertionMethod { didSet { defaults.set(insertionMethod.rawValue, forKey: "insertionMethod") } }
     var trailingSpace: Bool { didSet { defaults.set(trailingSpace, forKey: "trailingSpace") } }
     var removeFillerWords: Bool { didSet { defaults.set(removeFillerWords, forKey: "removeFillerWords") } }
+    /// Keep each dictation's recording with the history, to replay it or
+    /// transcribe it again.
+    var keepAudio: Bool { didSet { defaults.set(keepAudio, forKey: "keepAudio") } }
     var hasCompletedOnboarding: Bool { didSet { defaults.set(hasCompletedOnboarding, forKey: "hasCompletedOnboarding") } }
 
     var launchAtLogin: Bool {
@@ -71,6 +74,7 @@ final class AppSettings {
             "restoreClipboard": true,
             "trailingSpace": false,
             "removeFillerWords": true,
+            "keepAudio": true,
             "hasCompletedOnboarding": false,
         ])
         #if DEBUG
@@ -94,6 +98,7 @@ final class AppSettings {
         insertionMethod = defaults.string(forKey: "insertionMethod").flatMap(InsertionMethod.init(rawValue:)) ?? .paste
         trailingSpace = defaults.bool(forKey: "trailingSpace")
         removeFillerWords = defaults.bool(forKey: "removeFillerWords")
+        keepAudio = defaults.bool(forKey: "keepAudio")
         hasCompletedOnboarding = defaults.bool(forKey: "hasCompletedOnboarding")
     }
 

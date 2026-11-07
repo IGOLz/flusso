@@ -327,13 +327,7 @@ final class AppController {
             return
         }
         do {
-            let raw = try await engine.transcribe(samples, language: nil, skipSilence: settings.skipSilence)
-            let cleaned = TextCleanup.clean(raw, removeFillers: settings.removeFillerWords)
-            let entries = settings.dictionary
-            let snippets = settings.snippets
-            let text = entries.isEmpty && snippets.isEmpty ? cleaned : await Task.detached(priority: .userInitiated) {
-                Snippets.expand(cleaned, snippets: snippets) { CustomDictionary.apply($0, entries: entries) }
-            }.value
+            let text = try await transcribeText(samples)
             guard !text.isEmpty else {
                 finishUI(id: id, notPasted: nil)
                 return
@@ -342,11 +336,57 @@ final class AppController {
             let outcome = await inserter.insert(text, options: settings.insertOptions)
             HistoryStore.shared.add(HistoryItem(
                 text: text, date: Date(), wasPasted: outcome == .pasted,
-                appName: outcome == .pasted ? appName : nil, duration: duration))
+                appName: outcome == .pasted ? appName : nil, duration: duration),
+                audio: settings.keepAudio ? samples : nil)
             finishUI(id: id, notPasted: outcome == .noFocusedField ? text : nil)
         } catch {
             Log.app.error("Transcription failed: \(error.localizedDescription)")
             finishUI(id: id, notPasted: nil)
+        }
+    }
+
+    /// Audio → final text: transcription, cleanup, snippets and dictionary.
+    private func transcribeText(_ samples: [Float]) async throws -> String {
+        let raw = try await engine.transcribe(samples, language: nil, skipSilence: settings.skipSilence)
+        let cleaned = TextCleanup.clean(raw, removeFillers: settings.removeFillerWords)
+        let entries = settings.dictionary
+        let snippets = settings.snippets
+        guard !entries.isEmpty || !snippets.isEmpty else { return cleaned }
+        return await Task.detached(priority: .userInitiated) {
+            Snippets.expand(cleaned, snippets: snippets) { CustomDictionary.apply($0, entries: entries) }
+        }.value
+    }
+
+    /// History items being transcribed again.
+    private(set) var retranscribing: Set<HistoryItem.ID> = []
+
+    /// Transcribes a saved recording again with the current model and
+    /// settings, and updates its text in the history.
+    func retranscribe(_ item: HistoryItem) async {
+        // One at a time: each holds a whole recording in memory, and a live
+        // dictation shouldn't wait behind a queue of them.
+        guard let fileName = item.audioFile, retranscribing.isEmpty else {
+            if !retranscribing.isEmpty { NSSound.beep() }
+            return
+        }
+        guard engineStatus == .ready || engineStatus == .loading else {
+            notifyNoModel()
+            return
+        }
+        retranscribing.insert(item.id)
+        defer { retranscribing.remove(item.id) }
+        do {
+            let url = HistoryAudio.url(for: fileName)
+            let samples = try await Task.detached(priority: .userInitiated) { try HistoryAudio.read(url) }.value
+            let text = try await transcribeText(samples)
+            if text.isEmpty {
+                NSSound.beep()
+            } else {
+                HistoryStore.shared.updateText(of: item.id, to: text)
+            }
+        } catch {
+            Log.app.error("Transcribing again failed: \(error.localizedDescription)")
+            NSSound.beep()
         }
     }
 

@@ -70,6 +70,7 @@ struct HistoryView: View {
         .confirmationDialog("Clear all history?", isPresented: $confirmClear) {
             Button("Clear All", role: .destructive) {
                 guard !history.isShowingSamples else { return }
+                AudioPlayback.shared.stop()
                 withAnimation { history.clear() }
             }
         } message: {
@@ -105,6 +106,13 @@ private struct HistoryRow: View {
     let item: HistoryItem
     @State private var hovering = false
     @State private var copied = false
+    private var playback = AudioPlayback.shared
+    private var controller = AppController.shared
+
+    init(item: HistoryItem) { self.item = item }
+
+    private var isPlaying: Bool { playback.playingID == item.id }
+    private var isRetranscribing: Bool { controller.retranscribing.contains(item.id) }
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 14) {
@@ -140,14 +148,26 @@ private struct HistoryRow: View {
             Spacer(minLength: 4)
 
             HStack(spacing: 2) {
-                HoverIconButton(symbol: copied ? "checkmark" : "doc.on.doc", help: "Copy") { copy() }
-                HoverIconButton(symbol: "trash", help: "Delete", role: .destructive) {
-                    withAnimation(.snappy) { HistoryStore.shared.delete(item) }
+                if item.audioFile != nil {
+                    HoverIconButton(symbol: isPlaying ? "stop.fill" : "play.fill",
+                                    help: isPlaying ? "Stop" : "Play Recording") { playback.toggle(item) }
+                    if isRetranscribing {
+                        ProgressView()
+                            .controlSize(.small)
+                            .frame(width: 26, height: 26)
+                            .help("Transcribing…")
+                    } else {
+                        HoverIconButton(symbol: "arrow.clockwise",
+                                        help: "Transcribe Again (with the current model and settings)") { retranscribe() }
+                            .disabled(HistoryStore.shared.isShowingSamples || !controller.retranscribing.isEmpty)
+                    }
                 }
-                .disabled(HistoryStore.shared.isShowingSamples)
+                HoverIconButton(symbol: copied ? "checkmark" : "doc.on.doc", help: "Copy") { copy() }
+                HoverIconButton(symbol: "trash", help: "Delete", role: .destructive) { delete() }
+                    .disabled(HistoryStore.shared.isShowingSamples)
             }
             .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + 4 }
-            .opacity(hovering || showsHoverControlsAlways ? 1 : 0)
+            .opacity(hovering || isPlaying || isRetranscribing || showsHoverControlsAlways ? 1 : 0)
         }
         .padding(.horizontal, DS.rowHPadding)
         .padding(.vertical, 12)
@@ -157,12 +177,26 @@ private struct HistoryRow: View {
         .animation(.easeOut(duration: 0.12), value: hovering)
         .contextMenu {
             Button("Copy", systemImage: "doc.on.doc") { copy() }
-            Divider()
-            Button("Delete", systemImage: "trash", role: .destructive) {
-                withAnimation { HistoryStore.shared.delete(item) }
+            if item.audioFile != nil {
+                Button(isPlaying ? "Stop" : "Play Recording", systemImage: isPlaying ? "stop.fill" : "play.fill") {
+                    playback.toggle(item)
+                }
+                Button("Transcribe Again", systemImage: "arrow.clockwise") { retranscribe() }
+                    .disabled(!controller.retranscribing.isEmpty || HistoryStore.shared.isShowingSamples)
             }
-            .disabled(HistoryStore.shared.isShowingSamples)
+            Divider()
+            Button("Delete", systemImage: "trash", role: .destructive) { delete() }
+                .disabled(HistoryStore.shared.isShowingSamples)
         }
+    }
+
+    private func retranscribe() {
+        Task { await controller.retranscribe(item) }
+    }
+
+    private func delete() {
+        if isPlaying { playback.stop() }
+        withAnimation(.snappy) { HistoryStore.shared.delete(item) }
     }
 
     private func copy() {
