@@ -637,18 +637,32 @@ struct DictationStats {
     /// Last 7 days, oldest first.
     let week: [(day: Date, words: Int)]
 
+    /// From history items (sample data in DEBUG screenshots).
     init(items: [HistoryItem], now: Date = .now, calendar: Calendar = .current) {
+        var days: [Date: DayStats] = [:]
+        for item in items {
+            let day = calendar.startOfDay(for: item.date)
+            days[day, default: DayStats()].words += StatsStore.wordCount(item.text)
+            days[day, default: DayStats()].transcriptions += 1
+            days[day, default: DayStats()].seconds += item.duration
+        }
+        self.init(days: days, now: now, calendar: calendar)
+    }
+
+    /// From lifetime statistics, keyed by start of day.
+    init(days: [Date: DayStats], now: Date = .now, calendar: Calendar = .current) {
         var words = 0
         var spoken = 0.0
+        var transcriptions = 0
         var perDay: [Date: Int] = [:]
-        for item in items {
-            let count = item.text.split(whereSeparator: \.isWhitespace).count
-            words += count
-            spoken += item.duration
-            perDay[calendar.startOfDay(for: item.date), default: 0] += count
+        for (day, stats) in days where stats.transcriptions > 0 {
+            words += stats.words
+            spoken += stats.seconds
+            transcriptions += stats.transcriptions
+            perDay[day] = stats.words
         }
         self.words = words
-        transcriptions = items.count
+        self.transcriptions = transcriptions
         savedSeconds = max(0, Double(words) / Self.typingWPM * 60 - spoken)
         wordsPerMinute = spoken > 5 ? Int((Double(words) / (spoken / 60)).rounded()) : nil
 

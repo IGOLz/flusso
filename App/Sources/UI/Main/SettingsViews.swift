@@ -337,6 +337,7 @@ struct ModelsSettingsView: View {
 struct GeneralSettingsView: View {
     @Bindable private var settings = AppSettings.shared
     @Bindable private var updater = AppUpdater.shared
+    @State private var confirmResetStats = false
 
     var body: some View {
         PageScroll {
@@ -389,6 +390,19 @@ struct GeneralSettingsView: View {
                           title: "Keep audio recordings",
                           subtitle: "Replay a dictation from History, or transcribe it again with another model.",
                           isOn: $settings.keepAudio)
+                RowDivider()
+                SettingRow(symbol: "chart.bar.fill", color: .blue,
+                           title: "Statistics",
+                           subtitle: "Words, time saved, and streak on Home count every dictation, even ones no longer in History.") {
+                    Button("Reset…") { confirmResetStats = true }
+                        .glassButtonStyle()
+                        .disabled(StatsStore.shared.days.isEmpty)
+                }
+            }
+            .confirmationDialog("Reset your statistics?", isPresented: $confirmResetStats) {
+                Button("Reset Statistics", role: .destructive) { StatsStore.shared.reset() }
+            } message: {
+                Text("Words dictated, time saved, and your streak start again from zero. Your history isn’t affected.")
             }
             .onChange(of: settings.keepAudio) { _, keep in
                 guard !keep else { return }

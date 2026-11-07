@@ -18,7 +18,8 @@ struct HomeView: View {
     var body: some View {
         let _ = dayTick
         let items = history.displayedItems
-        let stats = DictationStats(items: items)
+        let stats = history.isShowingSamples ? DictationStats(items: items)
+            : DictationStats(days: StatsStore.shared.byDay())
         PageScroll {
             WelcomeHeader(selection: $selection)
 

@@ -131,6 +131,8 @@ final class AppController {
     func start() {
         guard !started else { return }
         started = true
+        // Seeds lifetime statistics from the history before anything is added.
+        _ = StatsStore.shared
 
         hotkeys.update(hold: settings.holdShortcut, lock: settings.lockShortcut, pasteLast: settings.pasteLastShortcut)
         startHotkeysIfPossible()
@@ -334,6 +336,7 @@ final class AppController {
             }
             let appName = NSWorkspace.shared.frontmostApplication?.localizedName
             let outcome = await inserter.insert(text, options: settings.insertOptions)
+            StatsStore.shared.record(text: text, seconds: duration)
             HistoryStore.shared.add(HistoryItem(
                 text: text, date: Date(), wasPasted: outcome == .pasted,
                 appName: outcome == .pasted ? appName : nil, duration: duration),
