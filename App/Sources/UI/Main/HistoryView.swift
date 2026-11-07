@@ -5,7 +5,7 @@ struct HistoryView: View {
     private var history = HistoryStore.shared
     @State private var query = ""
     @State private var confirmClear = false
-    /// Bumped at midnight so "Oggi"/"Ieri" headings stay correct.
+    /// Bumped at midnight so "Today"/"Yesterday" headings stay correct.
     @State private var dayTick = 0
 
     private var items: [HistoryItem] { history.displayedItems }
@@ -23,9 +23,9 @@ struct HistoryView: View {
         Group {
             if items.isEmpty {
                 ContentUnavailableView {
-                    Label("Nessuna trascrizione", systemImage: "clock.arrow.circlepath")
+                    Label("No Transcriptions Yet", systemImage: "clock.arrow.circlepath")
                 } description: {
-                    Text("Tieni premuto \(AppSettings.shared.holdShortcut.displayString) e parla: le tue dettature appariranno qui.")
+                    Text("Hold \(AppSettings.shared.holdShortcut.displayString) and speak — your dictations will appear here.")
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .pageBackground()
@@ -39,7 +39,7 @@ struct HistoryView: View {
                         VStack(alignment: .leading, spacing: DS.headerSpacing) {
                             HStack(alignment: .firstTextBaseline, spacing: 8) {
                                 SectionTitle(group.title)
-                                Text(group.items.count == 1 ? "1 trascrizione" : "\(group.items.count) trascrizioni")
+                                Text(group.items.count == 1 ? "1 transcription" : "\(group.items.count) transcriptions")
                                     .font(.callout)
                                     .foregroundStyle(.tertiary)
                             }
@@ -47,7 +47,7 @@ struct HistoryView: View {
                                 ForEach(group.items) { item in
                                     HistoryRow(item: item)
                                     if item.id != group.items.last?.id {
-                                        Divider().padding(.leading, DS.rowHPadding + 56)
+                                        Divider().padding(.leading, DS.rowHPadding + 76)
                                     }
                                 }
                             }
@@ -58,22 +58,24 @@ struct HistoryView: View {
                 .animation(.snappy, value: filtered.map(\.id))
             }
         }
-        .searchable(text: $query, placement: .toolbar, prompt: "Cerca")
+        .searchable(text: $query, placement: .toolbar, prompt: "Search")
         .toolbar {
             ToolbarItem {
-                Button("Cancella tutto", systemImage: "trash") { confirmClear = true }
-                    .help("Cancella tutta la cronologia")
+                Button("Clear All", systemImage: "trash") { confirmClear = true }
+                    .help("Clear all history")
                     .disabled(history.items.isEmpty || history.isShowingSamples)
             }
         }
         .onDayChange { dayTick &+= 1 }
-        .confirmationDialog("Cancellare tutta la cronologia?", isPresented: $confirmClear) {
-            Button("Cancella tutto", role: .destructive) {
+        .confirmationDialog("Clear all history?", isPresented: $confirmClear) {
+            Button("Clear All", role: .destructive) {
                 guard !history.isShowingSamples else { return }
                 withAnimation { history.clear() }
             }
         } message: {
-            Text("Tutte le \(history.items.count) trascrizioni verranno eliminate. L'azione non può essere annullata.")
+            Text(history.items.count == 1
+                 ? "Your 1 transcription will be deleted. This can’t be undone."
+                 : "All \(history.items.count.formatted(.number.locale(FlussoFormat.locale))) transcriptions will be deleted. This can’t be undone.")
         }
     }
 }
@@ -110,8 +112,8 @@ private struct HistoryRow: View {
                 .font(.callout.weight(.medium))
                 .monospacedDigit()
                 .foregroundStyle(.secondary)
-                .frame(width: 42, alignment: .leading)
-                .help(item.date.formatted(.relative(presentation: .named)))
+                .frame(width: 62, alignment: .leading)
+                .help(item.date.formatted(FlussoFormat.relative))
 
             VStack(alignment: .leading, spacing: 7) {
                 Text(item.text)
@@ -127,8 +129,8 @@ private struct HistoryRow: View {
                             .labelStyle(.titleAndIcon)
                     }
                     if !item.wasPasted {
-                        PillBadge(text: "Non incollato", color: .orange)
-                            .help("Non c'era un campo di testo attivo: copia il testo da qui.")
+                        PillBadge(text: "Not pasted", color: .orange)
+                            .help("No text field was active — copy the text from here.")
                     }
                 }
                 .font(.caption)
@@ -138,8 +140,8 @@ private struct HistoryRow: View {
             Spacer(minLength: 4)
 
             HStack(spacing: 2) {
-                HoverIconButton(symbol: copied ? "checkmark" : "doc.on.doc", help: "Copia") { copy() }
-                HoverIconButton(symbol: "trash", help: "Elimina", role: .destructive) {
+                HoverIconButton(symbol: copied ? "checkmark" : "doc.on.doc", help: "Copy") { copy() }
+                HoverIconButton(symbol: "trash", help: "Delete", role: .destructive) {
                     withAnimation(.snappy) { HistoryStore.shared.delete(item) }
                 }
                 .disabled(HistoryStore.shared.isShowingSamples)
@@ -154,9 +156,9 @@ private struct HistoryRow: View {
         .onHover { hovering = $0 }
         .animation(.easeOut(duration: 0.12), value: hovering)
         .contextMenu {
-            Button("Copia", systemImage: "doc.on.doc") { copy() }
+            Button("Copy", systemImage: "doc.on.doc") { copy() }
             Divider()
-            Button("Elimina", systemImage: "trash", role: .destructive) {
+            Button("Delete", systemImage: "trash", role: .destructive) {
                 withAnimation { HistoryStore.shared.delete(item) }
             }
             .disabled(HistoryStore.shared.isShowingSamples)

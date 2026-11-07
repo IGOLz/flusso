@@ -78,7 +78,7 @@ nonisolated struct ModifierKeys: OptionSet, Codable, Hashable, Sendable {
             let l = contains(left), r = contains(right)
             guard l || r else { return }
             if sideSpecific && !(l && r) {
-                parts.append(ShortcutCapPart(label: l ? "\(symbol) sinistro" : "\(symbol) destro",
+                parts.append(ShortcutCapPart(label: l ? "Left \(symbol)" : "Right \(symbol)",
                                              anyOf: l ? left : right, keyCode: nil))
             } else {
                 parts.append(ShortcutCapPart(label: symbol, anyOf: [left, right], keyCode: nil))
@@ -137,13 +137,13 @@ nonisolated struct Shortcut: Codable, Hashable, Sendable {
     }
 
     var displayString: String {
-        if isEmpty { return "Nessuna" }
+        if isEmpty { return "None" }
         var parts = modifiers.displayParts(sideSpecific: isModifierOnly)
         if let keyCode { parts.append(Shortcut.keyName(for: keyCode)) }
         return parts.joined(separator: " + ")
     }
 
-    /// Individual key caps for rendering (e.g. ["fn", "Spazio"]).
+    /// Individual key caps for rendering (e.g. ["fn", "Space"]).
     var keyCaps: [String] { capParts.map(\.label) }
 
     /// Key caps with what lights each of them up.
@@ -167,8 +167,8 @@ nonisolated struct Shortcut: Codable, Hashable, Sendable {
 
     static func keyName(for keyCode: UInt16) -> String {
         switch Int(keyCode) {
-        case kVK_Space: return "Spazio"
-        case kVK_Return: return "Invio"
+        case kVK_Space: return "Space"
+        case kVK_Return: return "Return"
         case kVK_Tab: return "Tab"
         case kVK_Escape: return "Esc"
         case kVK_Delete: return "⌫"
@@ -178,9 +178,9 @@ nonisolated struct Shortcut: Codable, Hashable, Sendable {
         case kVK_UpArrow: return "↑"
         case kVK_DownArrow: return "↓"
         case kVK_Home: return "Home"
-        case kVK_End: return "Fine"
-        case kVK_PageUp: return "Pag ↑"
-        case kVK_PageDown: return "Pag ↓"
+        case kVK_End: return "End"
+        case kVK_PageUp: return "Page Up"
+        case kVK_PageDown: return "Page Down"
         case kVK_F1: return "F1"
         case kVK_F2: return "F2"
         case kVK_F3: return "F3"
@@ -201,7 +201,7 @@ nonisolated struct Shortcut: Codable, Hashable, Sendable {
         case kVK_F18: return "F18"
         case kVK_F19: return "F19"
         default:
-            return characterForKeyCode(keyCode)?.uppercased() ?? "Tasto \(keyCode)"
+            return characterForKeyCode(keyCode)?.uppercased() ?? "Key \(keyCode)"
         }
     }
 

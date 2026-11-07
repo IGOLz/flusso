@@ -26,9 +26,9 @@ struct HomeView: View {
                 VStack(spacing: 10) {
                     if permissions.microphone != .granted {
                         NoticeCard(symbol: "mic.slash.fill",
-                                   title: "Accesso al microfono mancante",
-                                   message: "Flusso non può registrare la tua voce.") {
-                            Button(permissions.microphone == .denied ? "Apri Impostazioni" : "Consenti") {
+                                   title: "Microphone access needed",
+                                   message: "Flusso can’t record your voice.") {
+                            Button(permissions.microphone == .denied ? "Open Settings" : "Allow") {
                                 if permissions.microphone == .denied {
                                     permissions.openMicrophoneSettings()
                                 } else {
@@ -40,9 +40,9 @@ struct HomeView: View {
                     }
                     if !permissions.accessibility {
                         NoticeCard(symbol: "accessibility",
-                                   title: "Permesso Accessibilità mancante",
-                                   message: "Serve per la scorciatoia globale e per incollare il testo.") {
-                            Button("Apri Impostazioni") {
+                                   title: "Accessibility permission needed",
+                                   message: "Required for the global shortcut and to paste text.") {
+                            Button("Open Settings") {
                                 permissions.requestAccessibility()
                                 permissions.openAccessibilitySettings()
                             }
@@ -54,20 +54,21 @@ struct HomeView: View {
 
             AdaptiveColumns(minColumnWidth: 165) {
                 StatCard(symbol: "text.bubble.fill", color: .blue,
-                         value: stats.words.formatted(.number.locale(FlussoFormat.italian)),
+                         value: stats.words.formatted(.number.locale(FlussoFormat.locale)),
                          unit: nil,
-                         title: "Parole dettate",
-                         caption: stats.transcriptions == 1 ? "in 1 trascrizione" : "in \(stats.transcriptions) trascrizioni")
+                         title: "Words dictated",
+                         caption: stats.transcriptions == 1 ? "in 1 transcription"
+                             : "in \(stats.transcriptions.formatted(.number.locale(FlussoFormat.locale))) transcriptions")
                 let saved = FlussoFormat.savedTime(stats.savedSeconds)
                 StatCard(symbol: "bolt.fill", color: .orange,
                          value: saved.value, unit: saved.unit,
-                         title: "Tempo risparmiato",
-                         caption: "rispetto a scrivere a \(Int(DictationStats.typingWPM)) parole/min")
+                         title: "Time saved",
+                         caption: "vs. typing at \(Int(DictationStats.typingWPM)) words/min")
                 StatCard(symbol: "flame.fill", color: .pink,
-                         value: "\(stats.streak)", unit: stats.streak == 1 ? "giorno" : "giorni",
-                         title: "Serie",
-                         caption: stats.streak == 0 ? "Detta oggi per iniziarne una"
-                             : stats.dictatedToday ? "di fila, compreso oggi" : "Detta oggi per continuarla")
+                         value: "\(stats.streak)", unit: stats.streak == 1 ? "day" : "days",
+                         title: "Streak",
+                         caption: stats.streak == 0 ? "Dictate today to start one"
+                             : stats.dictatedToday ? "in a row, including today" : "Dictate today to keep it going")
             }
 
             AdaptiveColumns(minColumnWidth: 270) {
@@ -75,13 +76,13 @@ struct HomeView: View {
                 ShortcutsCard { selection = .shortcuts }
             }
 
-            SectionCard(title: "Recenti") {
+            SectionCard(title: "Recent Dictations") {
                 if items.isEmpty {
                     VStack(spacing: 6) {
                         Image(systemName: "waveform")
                             .font(.title2)
                             .foregroundStyle(.tertiary)
-                        Text("Le tue dettature appariranno qui.")
+                        Text("Your dictations will appear here.")
                             .foregroundStyle(.secondary)
                     }
                     .frame(maxWidth: .infinity)
@@ -99,7 +100,7 @@ struct HomeView: View {
                         selection = .history
                     } label: {
                         HStack(spacing: 2) {
-                            Text("Mostra tutte")
+                            Text("Show All")
                             Image(systemName: "chevron.right").font(.caption.weight(.semibold))
                         }
                     }
@@ -123,9 +124,9 @@ private struct WelcomeHeader: View {
 
     private var greeting: String {
         switch Calendar.current.component(.hour, from: .now) {
-        case 5..<13: "Buongiorno"
-        case 13..<18: "Buon pomeriggio"
-        default: "Buonasera"
+        case 5..<12: "Good morning"
+        case 12..<18: "Good afternoon"
+        default: "Good evening"
         }
     }
 
@@ -140,7 +141,7 @@ private struct WelcomeHeader: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text(greeting)
                     .font(.system(size: 26, weight: .bold))
-                Text("Tieni premuto \(settings.holdShortcut.displayString) e parla: il testo appare dove stai scrivendo.")
+                Text("Hold \(settings.holdShortcut.displayString) and speak — your words appear wherever you’re typing.")
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                 HStack(spacing: 6) {
@@ -181,11 +182,11 @@ private struct WelcomeHeader: View {
     private var action: some View {
         switch controller.engineStatus {
         case .noModel:
-            Button("Scarica un modello") { selection = .models }
+            Button("Download a Model") { selection = .models }
                 .glassProminentButtonStyle()
                 .controlSize(.large)
         case .failed:
-            Button("Riprova") {
+            Button("Try Again") {
                 if let model = ModelCatalog.model(id: settings.selectedModelID) { controller.selectModel(model) }
             }
             .glassButtonStyle()
@@ -240,16 +241,16 @@ private struct WeekActivityCard: View {
     let week: [(day: Date, words: Int)]
     let wordsPerMinute: Int?
 
-    private static let weekday = Date.FormatStyle(locale: FlussoFormat.italian).weekday(.narrow)
+    private static let weekday = Date.FormatStyle(locale: FlussoFormat.locale).weekday(.narrow)
 
     var body: some View {
         let maxWords = max(week.map(\.words).max() ?? 0, 1)
         let total = week.reduce(0) { $0 + $1.words }
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
-                Text("Ultimi 7 giorni").font(.headline)
+                Text("Last 7 Days").font(.headline)
                 Spacer()
-                Text(total == 1 ? "1 parola" : "\(total.formatted(.number.locale(FlussoFormat.italian))) parole")
+                Text(total == 1 ? "1 word" : "\(total.formatted(.number.locale(FlussoFormat.locale))) words")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
@@ -269,7 +270,7 @@ private struct WeekActivityCard: View {
                                            : max(8, geo.size.height * CGFloat(entry.words) / CGFloat(maxWords)))
                             }
                         }
-                        .help("\(FlussoFormat.dayTitle(entry.day)): \(entry.words) parole")
+                        .help("\(FlussoFormat.dayTitle(entry.day)): \(entry.words == 1 ? "1 word" : "\(entry.words.formatted(.number.locale(FlussoFormat.locale))) words")")
                         Text(entry.day.formatted(Self.weekday).uppercased())
                             .font(.caption2.weight(isToday ? .bold : .medium))
                             .foregroundStyle(isToday ? AnyShapeStyle(.primary) : AnyShapeStyle(.tertiary))
@@ -279,7 +280,7 @@ private struct WeekActivityCard: View {
             }
             .frame(height: 96)
             if let wordsPerMinute {
-                Label("Parli a circa \(wordsPerMinute) parole al minuto", systemImage: "speedometer")
+                Label("You speak about \(wordsPerMinute) words per minute", systemImage: "speedometer")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -299,18 +300,18 @@ private struct ShortcutsCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
-                Text("Scorciatoie").font(.headline)
+                Text("Shortcuts").font(.headline)
                 Spacer()
-                Button("Modifica", action: edit)
+                Button("Edit", action: edit)
                     .buttonStyle(.link)
                     .font(.callout)
             }
             ShortcutLine(symbol: "mic.fill", color: .orange,
-                         title: "Detta", help: "Tieni premuto, parla e rilascia per incollare il testo",
+                         title: "Dictate", help: "Hold, speak, and release to paste the text",
                          shortcut: settings.holdShortcut)
             Divider()
             ShortcutLine(symbol: "lock.fill", color: .blue,
-                         title: "Mani libere", help: "Premi una volta per iniziare, di nuovo per terminare",
+                         title: "Hands-free", help: "Press once to start, again to stop",
                          shortcut: settings.lockShortcut)
             Spacer(minLength: 0)
         }
@@ -355,13 +356,13 @@ private struct RecentRow: View {
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
                 HStack(spacing: 6) {
-                    Text(item.date, format: .relative(presentation: .named))
+                    Text(item.date, format: FlussoFormat.relative)
                     if let app = item.appName, !app.isEmpty {
                         Text("·").foregroundStyle(.tertiary)
                         AppBadge(name: app)
                     }
                     if !item.wasPasted {
-                        PillBadge(text: "Non incollato", color: .orange)
+                        PillBadge(text: "Not pasted", color: .orange)
                     }
                 }
                 .font(.caption)
@@ -380,7 +381,7 @@ private struct RecentRow: View {
         .onHover { hovering = $0 }
         .animation(.easeOut(duration: 0.12), value: hovering)
         .contextMenu {
-            Button("Copia", systemImage: "doc.on.doc") { HistoryStore.shared.copy(item) }
+            Button("Copy", systemImage: "doc.on.doc") { HistoryStore.shared.copy(item) }
         }
     }
 }

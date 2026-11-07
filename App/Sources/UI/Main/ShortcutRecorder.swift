@@ -8,16 +8,16 @@ enum ShortcutKind {
 
     var name: String {
         switch self {
-        case .hold: "dettare tenendo premuto"
-        case .lock: "la modalità mani libere"
+        case .hold: "hold to dictate"
+        case .lock: "hands-free mode"
         }
     }
 }
 
 /// Key-cap style control that records a new global shortcut.
 ///
-/// Click → "Premi i tasti…": a key combo (e.g. ⌥ + Spazio) is taken on key
-/// down; pressing and releasing modifiers alone (e.g. fn, ⌥ destro) records a
+/// Click → "Press Keys…": a key combo (e.g. ⌥ + Space) is taken on key
+/// down; pressing and releasing modifiers alone (e.g. fn, right ⌥) records a
 /// modifier-only shortcut. Esc cancels.
 struct ShortcutRecorder: View {
     let kind: ShortcutKind
@@ -44,7 +44,7 @@ struct ShortcutRecorder: View {
                 label
             }
             .buttonStyle(.plain)
-            .help(capture.isCapturing ? "Premi la nuova combinazione, Esc per annullare" : "Fai clic per cambiare la scorciatoia")
+            .help(capture.isCapturing ? "Press the new combination, or Esc to cancel" : "Click to change the shortcut")
 
             if let message = capture.message {
                 Text(message)
@@ -70,7 +70,7 @@ struct ShortcutRecorder: View {
                 Image(systemName: "record.circle")
                     .foregroundStyle(.tint)
                     .symbolEffect(.pulse, options: .repeating)
-                Text("Premi i tasti…")
+                Text("Press Keys…")
                     .foregroundStyle(.tint)
                     .font(.callout.weight(.medium))
             } else {
@@ -123,12 +123,12 @@ struct ShortcutRecorder: View {
         if let keyCode = candidate.keyCode {
             let meaningful = candidate.modifiers.subtracting([.leftShift, .rightShift])
             if meaningful.isEmpty && !ShortcutCapture.isFunctionKey(keyCode) {
-                return "Aggiungi un modificatore (fn, ⌃, ⌥ o ⌘): un tasto da solo bloccherebbe la scrittura."
+                return "Add a modifier (fn, ⌃, ⌥, or ⌘) — a key on its own would get in the way of typing."
             }
         }
         if ShortcutCapture.conflicts(candidate, otherShortcut) {
             let other = kind == .hold ? ShortcutKind.lock : .hold
-            return "Questa scorciatoia è già usata per \(other.name)."
+            return "This shortcut is already used for \(other.name)."
         }
         return nil
     }
@@ -164,7 +164,7 @@ final class ShortcutCapture {
         self.onCapture = onCapture
         peak = []
         keyPressedInChord = false
-        message = "Esc per annullare"
+        message = "Press Esc to cancel"
         messageIsError = false
         isCapturing = true
         AppController.shared.hotkeysSuspended = true

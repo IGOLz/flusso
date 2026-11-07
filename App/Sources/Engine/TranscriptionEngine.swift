@@ -7,9 +7,9 @@ nonisolated enum EngineError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .loadFailed(let s): "Impossibile caricare il modello (\(s))."
-        case .notLoaded: "Nessun modello caricato."
-        case .runFailed(let s): "Trascrizione non riuscita (\(s))."
+        case .loadFailed(let s): "Couldn't load the model (\(s))."
+        case .notLoaded: "No model loaded."
+        case .runFailed(let s): "Transcription failed (\(s))."
         }
     }
 }

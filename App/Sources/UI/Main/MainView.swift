@@ -34,13 +34,13 @@ enum SidebarPage: String, Hashable, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .home: "Home"
-        case .history: "Cronologia"
-        case .dictionary: "Dizionario"
-        case .shortcuts: "Scorciatoie"
-        case .microphone: "Microfono"
-        case .languages: "Lingue"
-        case .models: "Modelli"
-        case .general: "Generali"
+        case .history: "History"
+        case .dictionary: "Dictionary"
+        case .shortcuts: "Shortcuts"
+        case .microphone: "Microphone"
+        case .languages: "Languages"
+        case .models: "Models"
+        case .general: "General"
         }
     }
 
@@ -94,7 +94,7 @@ struct MainSplitView: View {
                         SidebarRow(page: page).tag(page)
                     }
                 }
-                Section("Impostazioni") {
+                Section("Settings") {
                     ForEach(SidebarPage.settings) { page in
                         SidebarRow(page: page).tag(page)
                     }
@@ -113,12 +113,12 @@ struct MainSplitView: View {
                 // make SwiftUI drop its toolbar and shift the window chrome.
                 .toolbar {
                     ToolbarItemGroup(placement: .navigation) {
-                        Button("Indietro", systemImage: "chevron.left", action: goBack)
-                            .help("Indietro")
+                        Button("Back", systemImage: "chevron.left", action: goBack)
+                            .help("Back")
                             .keyboardShortcut("[", modifiers: .command)
                             .disabled(backStack.isEmpty)
-                        Button("Avanti", systemImage: "chevron.right", action: goForward)
-                            .help("Avanti")
+                        Button("Forward", systemImage: "chevron.right", action: goForward)
+                            .help("Forward")
                             .keyboardShortcut("]", modifiers: .command)
                             .disabled(forwardStack.isEmpty)
                     }

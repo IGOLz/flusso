@@ -112,22 +112,22 @@ struct OnboardingView: View {
 
     private var continueTitle: String {
         switch step {
-        case .welcome: "Inizia"
-        case .tryIt: "Fine"
-        default: "Continua"
+        case .welcome: "Get Started"
+        case .tryIt: "Done"
+        default: "Continue"
         }
     }
 
     private var bottomBar: some View {
         HStack(spacing: 12) {
             if step != .welcome {
-                Button("Indietro") { go(-1) }
+                Button("Back") { go(-1) }
                     .glassButtonStyle()
                     .keyboardShortcut(.cancelAction)
             }
             Spacer()
             if canSkip {
-                Button("Salta") { go(1) }
+                Button("Skip") { go(1) }
                     .buttonStyle(.plain)
                     .font(.callout)
                     .foregroundStyle(.secondary)
@@ -174,7 +174,7 @@ private struct StepIndicator: View {
         .padding(.horizontal, 8)
         .animation(.smooth, value: current)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Passo \(current.rawValue + 1) di \(OnboardingStep.allCases.count)")
+        .accessibilityLabel("Step \(current.rawValue + 1) of \(OnboardingStep.allCases.count)")
     }
 }
 
@@ -224,23 +224,23 @@ private struct WelcomePage: View {
                     .resizable()
                     .frame(width: 128, height: 128)
                     .shadow(color: .black.opacity(0.15), radius: 12, y: 6)
-                Text("Benvenuto in Flusso")
+                Text("Welcome to Flusso")
                     .font(.system(size: 34, weight: .bold))
-                Text("Detta ovunque sul tuo Mac. Gratis, privato, tutto in locale.")
+                Text("Dictate anywhere on your Mac. Free, private, and fully local.")
                     .font(.title3)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }
             VStack(alignment: .leading, spacing: 16) {
                 FeatureRow(symbol: "mic.fill", color: .orange,
-                           title: "Tieni premuto e parla",
-                           detail: "Rilascia il tasto e il testo appare nel campo in cui stai scrivendo.")
+                           title: "Hold and speak",
+                           detail: "Release the key and your text appears in the field you’re typing in.")
                 FeatureRow(symbol: "lock.fill", color: .blue,
-                           title: "Privato per davvero",
-                           detail: "La trascrizione avviene sul tuo Mac: nessun audio lascia il computer.")
+                           title: "Truly private",
+                           detail: "Transcription happens on your Mac — no audio ever leaves your computer.")
                 FeatureRow(symbol: "globe", color: .green,
-                           title: "25 lingue",
-                           detail: "Parla in italiano, inglese o cambia lingua quando vuoi.")
+                           title: "25 languages",
+                           detail: "Speak English, Italian, and more — switch languages whenever you like.")
             }
             .frame(maxWidth: 420)
         }
@@ -274,37 +274,37 @@ private struct PermissionsPage: View {
     var body: some View {
         VStack(spacing: 26) {
             PageHeader(systemImage: "hand.raised.fill",
-                       title: "Due permessi e ci sei",
-                       subtitle: "Flusso ha bisogno di sentire la tua voce e di scrivere al posto tuo.")
+                       title: "Two Permissions and You’re Set",
+                       subtitle: "Flusso needs to hear your voice and type for you.")
             GlassCard {
                 PermissionRow(symbol: "mic.fill", color: .orange,
-                              title: "Microfono",
-                              detail: "Per registrare la tua voce mentre detti.",
+                              title: "Microphone",
+                              detail: "To record your voice while you dictate.",
                               granted: permissions.microphone == .granted) {
                     if permissions.microphone == .denied {
-                        Button("Apri Impostazioni") { permissions.openMicrophoneSettings() }
+                        Button("Open Settings") { permissions.openMicrophoneSettings() }
                     } else {
-                        Button("Consenti") {
+                        Button("Allow") {
                             Task { await permissions.requestMicrophone() }
                         }
                     }
                 }
                 Divider().padding(.leading, 66)
                 PermissionRow(symbol: "accessibility", color: .blue,
-                              title: "Accessibilità",
-                              detail: "Serve per la scorciatoia globale e per incollare il testo nel campo attivo.",
+                              title: "Accessibility",
+                              detail: "Required for the global shortcut and to paste text into the active field.",
                               granted: permissions.accessibility) {
                     if askedAccessibility {
-                        Button("Apri Impostazioni") { permissions.openAccessibilitySettings() }
+                        Button("Open Settings") { permissions.openAccessibilitySettings() }
                     } else {
-                        Button("Consenti") {
+                        Button("Allow") {
                             permissions.requestAccessibility()
                             askedAccessibility = true
                         }
                     }
                 }
             }
-            Text("Se Flusso è già nell'elenco Accessibilità ma risulta non autorizzato, rimuovilo con «–» e aggiungilo di nuovo.")
+            Text("If Flusso is already in the Accessibility list but isn’t allowed, remove it with “–” and add it again.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -348,12 +348,12 @@ private struct ModelPage: View {
     var body: some View {
         VStack(spacing: 26) {
             PageHeader(systemImage: "arrow.down.circle.fill",
-                       title: "Scarica il modello",
-                       subtitle: "Il riconoscimento vocale gira sul tuo Mac. Serve un download, una volta sola.")
+                       title: "Download the Model",
+                       subtitle: "Speech recognition runs on your Mac. It just needs a one-time download.")
             GlassCard {
                 ModelCard(model: model, compact: true)
             }
-            Text("Puoi continuare mentre il download procede: lo trovi anche in Impostazioni › Modelli.")
+            Text("You can continue while it downloads. You’ll also find it in Settings › Models.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -373,16 +373,16 @@ private struct ShortcutsPage: View {
     var body: some View {
         VStack(spacing: 18) {
             PageHeader(systemImage: "keyboard.fill",
-                       title: "Le tue scorciatoie",
-                       subtitle: "Prova a premerle: i tasti si illuminano. Fai clic su una scorciatoia per cambiarla.",
+                       title: "Your Shortcuts",
+                       subtitle: "Try pressing them — the keys light up. Click a shortcut to change it.",
                        compact: true)
             GlassCard {
-                ShortcutRow(title: "Detta",
-                            detail: "Tieni premuto \(settings.holdShortcut.displayString) per dettare, rilascia per incollare.",
+                ShortcutRow(title: "Dictate",
+                            detail: "Hold \(settings.holdShortcut.displayString) to dictate, release to paste.",
                             kind: .hold)
                 Divider().padding(.leading, 18)
-                ShortcutRow(title: "Mani libere",
-                            detail: "\(settings.lockShortcut.displayString) per la modalità mani libere (premi di nuovo per terminare).",
+                ShortcutRow(title: "Hands-free",
+                            detail: "Press \(settings.lockShortcut.displayString) to start hands-free dictation, and again to stop.",
                             kind: .lock)
             }
             if usesFn {
@@ -435,8 +435,8 @@ private struct TryItPage: View {
     var body: some View {
         VStack(spacing: 22) {
             PageHeader(systemImage: "waveform",
-                       title: "Prova adesso",
-                       subtitle: "Fai clic nel riquadro, tieni premuto \(settings.holdShortcut.displayString) e parla. Rilascia per vedere il testo.")
+                       title: "Try It Now",
+                       subtitle: "Click in the box, hold \(settings.holdShortcut.displayString), and speak. Release to see the text.")
 
             TextEditor(text: $text)
                 .font(.title3)
@@ -447,7 +447,7 @@ private struct TryItPage: View {
                 .card()
                 .overlay(alignment: .topLeading) {
                     if text.isEmpty {
-                        Text("Prova a dire: «Ciao, sto provando Flusso e funziona benissimo.»")
+                        Text("Try saying: “Hi, I’m trying out Flusso and it works great.”")
                             .font(.title3)
                             .foregroundStyle(.tertiary)
                             .padding(.horizontal, 17)
@@ -467,26 +467,26 @@ private struct TryItPage: View {
             switch (controller.phase, controller.engineStatus) {
             case (.recording, _):
                 Image(systemName: "circle.fill").foregroundStyle(.red).symbolEffect(.pulse, options: .repeating)
-                Text("In ascolto…")
+                Text("Listening…")
             case (.transcribing, _):
                 ProgressView().controlSize(.small)
-                Text("Trascrizione in corso…")
+                Text("Transcribing…")
             case (_, .loading):
                 ProgressView().controlSize(.small)
-                Text("Caricamento del modello…")
+                Text("Loading model…")
             case (_, .noModel):
                 Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
-                Text("Il modello non è ancora installato: torna indietro per scaricarlo.")
+                Text("The model isn’t installed yet — go back to download it.")
             case (_, .failed(let message)):
                 Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.red)
                 Text(message)
             case (_, .ready):
                 if permissions.allGranted {
                     Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
-                    Text("Pronto. Puoi usare Flusso in qualsiasi app.")
+                    Text("Ready. You can use Flusso in any app.")
                 } else {
                     Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
-                    Text("Mancano dei permessi: torna indietro per concederli.")
+                    Text("Some permissions are missing — go back to grant them.")
                 }
             }
         }

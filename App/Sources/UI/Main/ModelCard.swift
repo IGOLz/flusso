@@ -25,10 +25,10 @@ struct ModelCard: View {
                     HStack(spacing: 8) {
                         Text(model.name).font(.title3.weight(.semibold))
                         if model.isRecommended {
-                            PillBadge(text: "Consigliato", color: .accentColor, systemImage: "star.fill")
+                            PillBadge(text: "Recommended", color: .accentColor, systemImage: "star.fill")
                         }
                         if isSelected && !compact && manager.isInstalled(model) {
-                            PillBadge(text: "In uso", color: .green, systemImage: "checkmark")
+                            PillBadge(text: "In Use", color: .green, systemImage: "checkmark")
                         }
                     }
                     Text(model.summary)
@@ -71,12 +71,12 @@ struct ModelActions: View {
             switch manager.state(for: model) {
             case .notDownloaded:
                 HStack {
-                    Text("Non scaricato").foregroundStyle(.secondary)
+                    Text("Not downloaded").foregroundStyle(.secondary)
                     Spacer()
                     Button {
                         manager.download(model)
                     } label: {
-                        Label("Scarica", systemImage: "arrow.down")
+                        Label("Download", systemImage: "arrow.down")
                     }
                     .glassProminentButtonStyle()
                 }
@@ -85,13 +85,13 @@ struct ModelActions: View {
                 VStack(alignment: .leading, spacing: 8) {
                     ProgressView(value: progress)
                     HStack {
-                        Text("\(ByteFormat.string(received)) di \(ByteFormat.string(total))")
+                        Text("\(ByteFormat.string(received)) of \(ByteFormat.string(total))")
                             .monospacedDigit()
                         Text("·")
-                        Text(progress, format: .percent.precision(.fractionLength(0)))
+                        Text(progress, format: .percent.precision(.fractionLength(0)).locale(FlussoFormat.locale))
                             .monospacedDigit()
                         Spacer()
-                        Button("Annulla") { manager.cancelDownload(model) }
+                        Button("Cancel") { manager.cancelDownload(model) }
                             .glassButtonStyle()
                     }
                     .font(.callout)
@@ -103,7 +103,7 @@ struct ModelActions: View {
                     ProgressView(value: 1)
                     HStack(spacing: 8) {
                         ProgressView().controlSize(.small)
-                        Text("Verifica dell'integrità del file…")
+                        Text("Verifying file integrity…")
                     }
                     .font(.callout)
                     .foregroundStyle(.secondary)
@@ -111,17 +111,17 @@ struct ModelActions: View {
 
             case .downloaded:
                 HStack(spacing: 10) {
-                    Label("Scaricato", systemImage: "checkmark.circle.fill")
+                    Label("Downloaded", systemImage: "checkmark.circle.fill")
                         .foregroundStyle(.green)
                         .font(.callout.weight(.medium))
                     Spacer()
                     if !compact {
                         if isSelected {
-                            Text("Modello in uso").foregroundStyle(.secondary).font(.callout)
+                            Text("Model in use").foregroundStyle(.secondary).font(.callout)
                         } else {
-                            Button("Elimina", role: .destructive) { confirmDelete = true }
+                            Button("Delete", role: .destructive) { confirmDelete = true }
                                 .glassButtonStyle()
-                            Button("Usa questo modello") { AppController.shared.selectModel(model) }
+                            Button("Use This Model") { AppController.shared.selectModel(model) }
                                 .glassProminentButtonStyle()
                         }
                     }
@@ -137,7 +137,7 @@ struct ModelActions: View {
                     Button {
                         manager.download(model)
                     } label: {
-                        Label("Riprova", systemImage: "arrow.clockwise")
+                        Label("Try Again", systemImage: "arrow.clockwise")
                     }
                     .glassProminentButtonStyle()
                 }
@@ -150,10 +150,10 @@ struct ModelActions: View {
                 AppController.shared.selectModel(model)
             }
         }
-        .confirmationDialog("Eliminare \(model.name)?", isPresented: $confirmDelete) {
-            Button("Elimina", role: .destructive) { manager.delete(model) }
+        .confirmationDialog("Delete \(model.name)?", isPresented: $confirmDelete) {
+            Button("Delete", role: .destructive) { manager.delete(model) }
         } message: {
-            Text("Libererai \(model.sizeDescription). Potrai scaricarlo di nuovo in qualsiasi momento.")
+            Text("This frees up \(model.sizeDescription). You can download it again at any time.")
         }
     }
 }

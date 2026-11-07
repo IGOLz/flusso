@@ -65,24 +65,24 @@ private struct MenuBarMenu: View {
     var body: some View {
         Text(statusText)
         Divider()
-        Button("Apri Flusso…") { MainWindowController.shared.show() }
+        Button("Open Flusso…") { MainWindowController.shared.show() }
             .keyboardShortcut(",")
-        Button("Verifica aggiornamenti…") { AppUpdater.shared.checkForUpdates() }
+        Button("Check for Updates…") { AppUpdater.shared.checkForUpdates() }
             .disabled(!AppUpdater.shared.canCheckForUpdates)
         Divider()
-        Text("Tieni premuto \(settings.holdShortcut.displayString) per dettare")
-        Text("\(settings.lockShortcut.displayString) per la modalità mani libere")
+        Text("Hold \(settings.holdShortcut.displayString) to dictate")
+        Text("\(settings.lockShortcut.displayString) for hands-free mode")
         Divider()
-        Button("Esci da Flusso") { NSApp.terminate(nil) }
+        Button("Quit Flusso") { NSApp.terminate(nil) }
             .keyboardShortcut("q")
     }
 
     private var statusText: String {
         switch controller.engineStatus {
-        case .noModel: "Nessun modello installato"
-        case .loading: "Caricamento modello…"
-        case .ready: "Pronto"
-        case .failed(let message): "Errore: \(message)"
+        case .noModel: "No model installed"
+        case .loading: "Loading model…"
+        case .ready: "Ready"
+        case .failed(let message): "Error: \(message)"
         }
     }
 }

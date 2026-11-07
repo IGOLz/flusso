@@ -8,7 +8,7 @@ import SwiftUI
 final class OverlayController {
     static let shared = OverlayController()
 
-    /// Where "Copia" writes. Overridable for tests so they don't clobber the user's clipboard.
+    /// Where "Copy" writes. Overridable for tests so they don't clobber the user's clipboard.
     static var pasteboard: NSPasteboard = .general
 
     private let model = OverlayModel()

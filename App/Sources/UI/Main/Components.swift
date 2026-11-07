@@ -51,7 +51,7 @@ struct LiveShortcutCaps: View {
         let parts = shortcut.capParts
         HStack(spacing: 4) {
             if parts.isEmpty {
-                Text("Nessuna").foregroundStyle(.secondary)
+                Text("None").foregroundStyle(.secondary)
             }
             ForEach(Array(parts.enumerated()), id: \.offset) { _, part in
                 KeyCap(label: part.label, isPressed: part.isPressed(keyboard))
@@ -88,7 +88,7 @@ struct LiveShortcutCaps: View {
     }
 }
 
-/// A row of key caps, e.g. `fn` `Spazio`.
+/// A row of key caps, e.g. `fn` `Space`.
 struct KeyCaps: View {
     let caps: [String]
 
@@ -98,7 +98,7 @@ struct KeyCaps: View {
     var body: some View {
         HStack(spacing: 4) {
             if caps.isEmpty {
-                Text("Nessuna").foregroundStyle(.secondary)
+                Text("None").foregroundStyle(.secondary)
             }
             ForEach(Array(caps.enumerated()), id: \.offset) { _, cap in
                 KeyCap(label: cap)
@@ -133,7 +133,7 @@ struct IconTile: View {
     }
 }
 
-/// A small coloured capsule label ("Consigliato", "Non incollato"…).
+/// A small coloured capsule label ("Recommended", "Not pasted"…).
 struct PillBadge: View {
     let text: String
     var color: Color = .accentColor
@@ -152,10 +152,10 @@ struct PillBadge: View {
     }
 }
 
-/// "Concesso" check shown next to a granted permission.
+/// "Granted" check shown next to a granted permission.
 struct GrantedLabel: View {
     var body: some View {
-        Label("Concesso", systemImage: "checkmark.circle.fill")
+        Label("Granted", systemImage: "checkmark.circle.fill")
             .foregroundStyle(.green)
             .font(.callout.weight(.medium))
     }
@@ -179,12 +179,12 @@ struct FnKeyTip: View {
                 .foregroundStyle(.tint)
                 .frame(width: 28)
             VStack(alignment: .leading, spacing: 6) {
-                Text("Usare fn in modo affidabile")
+                Text("Using fn reliably")
                     .font(.headline)
-                Text("In Impostazioni di Sistema › Tastiera imposta «Premi il tasto 🌐 per» su «Non fare nulla», così macOS non apre emoji o Dettatura quando usi fn.")
+                Text("In System Settings › Keyboard, set “Press 🌐 key to” to “Do Nothing”, so macOS doesn’t open the emoji picker or Dictation when you use fn.")
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
-                Button("Apri impostazioni Tastiera…") {
+                Button("Open Keyboard Settings…") {
                     Permissions.shared.openKeyboardSettings()
                 }
                 .buttonStyle(.link)
@@ -211,20 +211,21 @@ struct TextCopyButton: View {
             }
         } label: {
             if let title {
-                Label(copied ? "Copiato" : title, systemImage: copied ? "checkmark" : "doc.on.doc")
+                Label(copied ? "Copied" : title, systemImage: copied ? "checkmark" : "doc.on.doc")
             } else {
                 Image(systemName: copied ? "checkmark" : "doc.on.doc")
                     .contentTransition(.symbolEffect(.replace))
                     .frame(width: 18)
             }
         }
-        .help("Copia")
+        .help("Copy")
     }
 }
 
 enum ByteFormat {
     static func string(_ bytes: Int64) -> String {
-        ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
+        // ByteCountFormatter follows the Mac's language ("740,4 MB" in Italian).
+        bytes.formatted(.byteCount(style: .file).locale(FlussoFormat.locale))
     }
 }
 

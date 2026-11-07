@@ -21,7 +21,7 @@ nonisolated struct ModelInfo: Identifiable, Hashable, Sendable {
     }
 
     var sizeDescription: String {
-        ByteCountFormatter.string(fromByteCount: sizeBytes, countStyle: .file)
+        sizeBytes.formatted(.byteCount(style: .file).locale(Locale(identifier: "en_US")))
     }
 }
 
@@ -32,25 +32,25 @@ enum ModelCatalog {
         ModelInfo(
             id: "parakeet-ultra",
             name: "Parakeet Ultra",
-            summary: "Il modello consigliato da Handy: massima precisione in 25 lingue europee, italiano incluso.",
+            summary: "Handy's recommended model: top accuracy across 25 European languages.",
             repository: "handy-computer/parakeet-ultra-gguf",
             revision: "39eeb55181f0d354fd934f06e92fd8d5037fed8e",
             filename: "parakeet-ultra-Q8_0.gguf",
             sizeBytes: 740_363_168,
             sha256: "007a59761e9258779f189df396b50d12b83bb5b79e66df4b955c230d2f2a0a59",
-            languages: "25 lingue · rilevamento automatico",
+            languages: "25 languages · automatic detection",
             isRecommended: true
         ),
         ModelInfo(
             id: "parakeet-tdt-0.6b-v3",
             name: "Parakeet V3",
-            summary: "Il modello multilingue originale di NVIDIA. Veloce e preciso, leggermente meno di Ultra.",
+            summary: "NVIDIA's original multilingual model. Fast and accurate, slightly behind Ultra.",
             repository: "handy-computer/parakeet-tdt-0.6b-v3-gguf",
             revision: "85ac09ea12fc4b1112fa76810059364bc6adc9de",
             filename: "parakeet-tdt-0.6b-v3-Q8_0.gguf",
             sizeBytes: 739_508_576,
             sha256: "5859f77944efcd8eafa23a6350731960b2b55b2203df51f319665c807d802cc7",
-            languages: "25 lingue · rilevamento automatico",
+            languages: "25 languages · automatic detection",
             isRecommended: false
         ),
     ]
@@ -186,7 +186,7 @@ final class ModelManager {
         guard isCurrent(id, task: task) else { return } // cancelled or superseded
         tasks[id] = nil
         Log.models.error("Download \(id) failed: \(error.localizedDescription)")
-        states[id] = .failed("Download non riuscito: \(error.localizedDescription)")
+        states[id] = .failed("Download failed: \(error.localizedDescription)")
     }
 
     private nonisolated static func verifyAndInstall(staged: URL, model: ModelInfo, destination: URL) -> Result<Void, Error> {
@@ -232,7 +232,7 @@ nonisolated enum ModelError: LocalizedError {
     case checksumMismatch
     var errorDescription: String? {
         switch self {
-        case .checksumMismatch: "Il file scaricato è corrotto (checksum errato). Riprova."
+        case .checksumMismatch: "The downloaded file is corrupted (checksum mismatch). Try again."
         }
     }
 }

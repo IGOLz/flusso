@@ -20,7 +20,7 @@ enum OverlayDemo {
                 log("transcribing"); overlay.showTranscribing()
                 try? await Task.sleep(for: .seconds(1.5))
                 log("notPasted")
-                overlay.showNotPasted(text: "Ciao Marco, ti confermo la riunione di domani alle dieci. Porto io le slide aggiornate con i numeri del trimestre.")
+                overlay.showNotPasted(text: "Hi Mark, confirming tomorrow's meeting at ten. I'll bring the updated slides with this quarter's numbers.")
                 try? await Task.sleep(for: .seconds(7))
                 log("hidden"); overlay.hide()
                 try? await Task.sleep(for: .seconds(1.5))

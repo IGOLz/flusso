@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-// MARK: - Scorciatoie
+// MARK: - Shortcuts
 
 struct ShortcutsSettingsView: View {
     @Bindable private var settings = AppSettings.shared
@@ -17,24 +17,24 @@ struct ShortcutsSettingsView: View {
     var body: some View {
         PageScroll {
             PageHero(symbol: "keyboard.fill", color: .gray,
-                     title: "Scorciatoie",
-                     description: "Premi le scorciatoie per provarle: i tasti si illuminano. Fai clic su una scorciatoia per registrarne una nuova.")
+                     title: "Shortcuts",
+                     description: "Press a shortcut to try it — its keys light up. Click a shortcut to record a new one.")
 
-            SectionCard(title: "Dettatura",
-                        footer: "Puoi usare anche un solo modificatore, come fn o ⌥ destro. Esc annulla la registrazione.") {
+            SectionCard(title: "Dictation",
+                        footer: "You can also use a single modifier, like fn or right ⌥. Press Esc to cancel recording.") {
                 SettingRow(symbol: "mic.fill", color: .orange,
-                           title: "Tieni premuto per dettare",
-                           subtitle: "Tieni premuto, parla e rilascia per incollare il testo.") {
+                           title: "Hold to dictate",
+                           subtitle: "Hold, speak, and release to paste the text.") {
                     ShortcutRecorder(.hold)
                 }
                 RowDivider()
                 SettingRow(symbol: "lock.fill", color: .blue,
-                           title: "Modalità mani libere",
-                           subtitle: "Premi una volta per iniziare a dettare, di nuovo per terminare.") {
+                           title: "Hands-free mode",
+                           subtitle: "Press once to start dictating, again to stop.") {
                     ShortcutRecorder(.lock)
                 }
             } accessory: {
-                Button("Ripristina predefiniti") {
+                Button("Restore Defaults") {
                     withAnimation(.snappy) {
                         settings.holdShortcut = .holdDefault
                         settings.lockShortcut = .lockDefault
@@ -56,7 +56,7 @@ struct ShortcutsSettingsView: View {
     }
 }
 
-// MARK: - Microfono
+// MARK: - Microphone
 
 struct MicrophoneSettingsView: View {
     @Bindable private var settings = AppSettings.shared
@@ -67,14 +67,14 @@ struct MicrophoneSettingsView: View {
     var body: some View {
         PageScroll {
             PageHero(symbol: "mic.fill", color: .pink,
-                     title: "Microfono",
-                     description: "Scegli da quale dispositivo Flusso registra la tua voce e come si comporta durante la registrazione.")
+                     title: "Microphone",
+                     description: "Choose which device Flusso records your voice from and how it behaves while recording.")
 
             if permissions.microphone != .granted {
                 NoticeCard(symbol: "mic.slash.fill",
-                           title: "Accesso al microfono mancante",
-                           message: "Consenti a Flusso di usare il microfono per poter dettare.") {
-                    Button(permissions.microphone == .denied ? "Apri Impostazioni" : "Consenti") {
+                           title: "Microphone access needed",
+                           message: "Allow Flusso to use the microphone so you can dictate.") {
+                    Button(permissions.microphone == .denied ? "Open Settings" : "Allow") {
                         if permissions.microphone == .denied {
                             permissions.openMicrophoneSettings()
                         } else {
@@ -85,10 +85,10 @@ struct MicrophoneSettingsView: View {
                 }
             }
 
-            SectionCard(title: "Dispositivo di ingresso") {
+            SectionCard(title: "Input Device") {
                 DeviceRow(symbol: "gearshape.fill", color: .gray,
-                          title: "Predefinito di sistema",
-                          subtitle: defaultDeviceName ?? "Segue le Impostazioni di Sistema",
+                          title: "System default",
+                          subtitle: defaultDeviceName ?? "Follows System Settings",
                           isSelected: settings.microphoneUID == nil) {
                     settings.microphoneUID = nil
                 }
@@ -103,21 +103,21 @@ struct MicrophoneSettingsView: View {
                 if let uid = settings.microphoneUID, !devices.contains(where: { $0.uid == uid }) {
                     RowDivider()
                     DeviceRow(symbol: "mic.slash.fill", color: .orange,
-                              title: "Dispositivo non collegato",
-                              subtitle: "Collegalo di nuovo o scegline un altro.",
+                              title: "Device not connected",
+                              subtitle: "Reconnect it or choose another one.",
                               isSelected: true) {}
                 }
             }
 
-            SectionCard(title: "Registrazione") {
+            SectionCard(title: "Recording") {
                 ToggleRow(symbol: "bolt.fill", color: .orange,
-                          title: "Avvio istantaneo",
-                          subtitle: "Il microfono resta pronto, così la registrazione parte in 0 ms e viene catturato anche l'istante prima della pressione del tasto. Mentre è attivo, macOS mostra l'indicatore arancione del microfono.",
+                          title: "Instant start",
+                          subtitle: "Keeps the microphone ready, so recording starts in 0 ms and even catches the moment before you press the key. While it’s on, macOS shows the orange microphone indicator.",
                           isOn: $settings.instantStart)
                 RowDivider()
                 ToggleRow(symbol: "speaker.wave.2.fill", color: .blue,
-                          title: "Suoni",
-                          subtitle: "Riproduci un suono quando la registrazione inizia e finisce.",
+                          title: "Sounds",
+                          subtitle: "Play a sound when recording starts and stops.",
                           isOn: $settings.playSounds)
             }
         }
@@ -128,6 +128,7 @@ struct MicrophoneSettingsView: View {
     }
 
     private static func symbol(for name: String) -> String {
+        // Device names are localized by macOS, so match Italian names too.
         let lower = name.lowercased()
         if lower.contains("airpods") { return "airpods" }
         if lower.contains("iphone") { return "iphone" }
@@ -172,7 +173,7 @@ private struct DeviceRow: View {
     }
 }
 
-// MARK: - Lingue
+// MARK: - Languages
 
 struct LanguagesSettingsView: View {
     @Bindable private var settings = AppSettings.shared
@@ -187,20 +188,20 @@ struct LanguagesSettingsView: View {
     var body: some View {
         PageScroll {
             PageHero(symbol: "globe", color: .teal,
-                     title: "Lingue",
-                     description: "Parakeet riconosce automaticamente la lingua in cui parli: seleziona quelle che usi. Puoi passare da una all'altra liberamente.")
+                     title: "Languages",
+                     description: "Parakeet automatically detects the language you’re speaking. Select the ones you use — you can switch between them freely.")
 
             VStack(alignment: .leading, spacing: DS.headerSpacing) {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    SectionTitle("Le tue lingue")
-                    Text(settings.spokenLanguages.count == 1 ? "1 selezionata" : "\(settings.spokenLanguages.count) selezionate")
+                    SectionTitle("Your Languages")
+                    Text(settings.spokenLanguages.count == 1 ? "1 language selected" : "\(settings.spokenLanguages.count) languages selected")
                         .font(.callout)
                         .foregroundStyle(.tertiary)
                 }
                 if filtered.isEmpty {
                     EmptyStateCard(symbol: "magnifyingglass",
-                                   title: "Nessun risultato",
-                                   message: "Nessuna lingua trovata per «\(query)».")
+                                   title: "No Results",
+                                   message: "No languages found for “\(query)”.")
                 } else {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 158), spacing: 10)], spacing: 10) {
                         ForEach(filtered) { language in
@@ -212,14 +213,14 @@ struct LanguagesSettingsView: View {
                         }
                     }
                 }
-                Text("Almeno una lingua deve restare selezionata.")
+                Text("At least one language must stay selected.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 4)
                     .padding(.top, 2)
             }
         }
-        .searchable(text: $query, placement: .toolbar, prompt: "Cerca lingua")
+        .searchable(text: $query, placement: .toolbar, prompt: "Search Languages")
     }
 
     private func toggle(_ language: SpokenLanguage) {
@@ -270,14 +271,14 @@ private struct LanguageTile: View {
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
-        .help(isLast ? "Almeno una lingua deve restare selezionata" : "")
+        .help(isLast ? "At least one language must stay selected" : "")
         .animation(.snappy(duration: 0.2), value: isSelected)
         .animation(.easeOut(duration: 0.12), value: hovering)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 
-// MARK: - Modelli
+// MARK: - Models
 
 struct ModelsSettingsView: View {
     private var settings = AppSettings.shared
@@ -286,11 +287,11 @@ struct ModelsSettingsView: View {
     var body: some View {
         PageScroll {
             PageHero(symbol: "cpu.fill", color: .indigo,
-                     title: "Modelli",
-                     description: "I modelli trascrivono la tua voce direttamente sul Mac, senza connessione. Ne basta uno.")
+                     title: "Models",
+                     description: "Models transcribe your voice right on your Mac, with no internet connection. You only need one.")
 
             VStack(alignment: .leading, spacing: DS.headerSpacing) {
-                SectionTitle("Disponibili")
+                SectionTitle("Available")
                 VStack(spacing: 12) {
                     ForEach(ModelCatalog.models) { model in
                         ModelCard(model: model)
@@ -302,10 +303,10 @@ struct ModelsSettingsView: View {
             HStack(spacing: 10) {
                 Image(systemName: "folder.fill")
                     .foregroundStyle(.secondary)
-                Text("I modelli sono salvati in Application Support › Flusso › Models.")
+                Text("Models are stored in Application Support › Flusso › Models.")
                     .foregroundStyle(.secondary)
                 Spacer()
-                Button("Mostra nel Finder") {
+                Button("Show in Finder") {
                     NSWorkspace.shared.activateFileViewerSelecting([ModelManager.modelsDirectory])
                 }
                 .glassButtonStyle()
@@ -318,7 +319,7 @@ struct ModelsSettingsView: View {
     }
 }
 
-// MARK: - Generali
+// MARK: - General
 
 struct GeneralSettingsView: View {
     @Bindable private var settings = AppSettings.shared
@@ -327,60 +328,60 @@ struct GeneralSettingsView: View {
     var body: some View {
         PageScroll {
             PageHero(symbol: "gearshape.fill", color: .gray,
-                     title: "Generali",
-                     description: "Avvio, testo incollato, aggiornamenti e informazioni su Flusso.")
+                     title: "General",
+                     description: "Startup, pasted text, updates, and information about Flusso.")
 
-            SectionCard(title: "Avvio") {
+            SectionCard(title: "Startup") {
                 ToggleRow(symbol: "power", color: .green,
-                          title: "Avvia al login",
-                          subtitle: "Flusso si apre nella barra dei menu quando accedi al Mac.",
+                          title: "Launch at login",
+                          subtitle: "Flusso opens in the menu bar when you log in to your Mac.",
                           isOn: $settings.launchAtLogin)
             }
 
-            SectionCard(title: "Testo") {
+            SectionCard(title: "Text") {
                 ToggleRow(symbol: "doc.on.clipboard.fill", color: .blue,
-                          title: "Ripristina appunti dopo l'incolla",
-                          subtitle: "Dopo aver incollato la trascrizione, Flusso rimette negli appunti quello che c'era prima.",
+                          title: "Restore clipboard after pasting",
+                          subtitle: "After pasting the transcription, Flusso puts back what was on the clipboard before.",
                           isOn: $settings.restoreClipboard)
                 RowDivider()
                 ToggleRow(symbol: "scissors", color: .pink,
-                          title: "Rimuovi intercalari",
-                          subtitle: "Elimina «ehm», «uhm» e simili dal testo trascritto.",
+                          title: "Remove filler words",
+                          subtitle: "Removes “uhm”, “ehm”, and similar sounds from the transcribed text.",
                           isOn: $settings.removeFillerWords)
             }
 
             // Same settings as `UpdateSettingsSection` (AppUpdater.swift), in
             // this page's card style.
-            SectionCard(title: "Aggiornamenti",
+            SectionCard(title: "Updates",
                         footer: AppUpdater.isEnabled
-                            ? "Flusso cerca una nuova versione all'avvio e una volta al giorno. Gli aggiornamenti automatici vengono installati alla chiusura dell'app."
-                            : "Le build di sviluppo non si aggiornano da sole.") {
+                            ? "Flusso checks for a new version at launch and once a day. Automatic updates are installed when you quit the app."
+                            : "Development builds don’t update themselves.") {
                 ToggleRow(symbol: "arrow.triangle.2.circlepath", color: .blue,
-                          title: "Cerca aggiornamenti automaticamente",
+                          title: "Check for updates automatically",
                           isOn: $updater.automaticallyChecks)
                     .disabled(!AppUpdater.isEnabled)
                 if updater.allowsAutomaticDownloads {
                     RowDivider()
                     ToggleRow(symbol: "arrow.down.circle.fill", color: .teal,
-                              title: "Scarica e installa automaticamente",
+                              title: "Download and install automatically",
                               isOn: $updater.automaticallyDownloads)
                         .disabled(!updater.automaticallyChecks || !AppUpdater.isEnabled)
                 }
                 RowDivider()
                 SettingRow(symbol: "shippingbox.fill", color: .orange,
-                           title: "Versione \(updater.versionDescription)") {
-                    Button("Verifica aggiornamenti…") { updater.checkForUpdates() }
+                           title: "Version \(updater.versionDescription)") {
+                    Button("Check for Updates…") { updater.checkForUpdates() }
                         .glassButtonStyle()
                         .disabled(!updater.canCheckForUpdates)
                 }
             }
             .onAppear { updater.refresh() }
 
-            SectionCard(title: "Introduzione") {
+            SectionCard(title: "Welcome") {
                 SettingRow(symbol: "sparkles", color: .purple,
-                           title: "Mostra di nuovo l'introduzione",
-                           subtitle: "Ripercorri permessi, modello e scorciatoie.") {
-                    Button("Mostra") { settings.hasCompletedOnboarding = false }
+                           title: "Show Welcome Again",
+                           subtitle: "Go through permissions, model, and shortcuts again.") {
+                    Button("Show") { settings.hasCompletedOnboarding = false }
                         .glassButtonStyle()
                 }
             }
@@ -399,10 +400,10 @@ private struct AboutCard: View {
                 .frame(width: 48, height: 48)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Flusso").font(.headline)
-                Text("Motore di trascrizione transcribe.cpp · Metal")
+                Text("transcribe.cpp transcription engine · Metal")
                     .font(.callout)
                     .foregroundStyle(.secondary)
-                Label("Gratuito e interamente in locale: audio e testo non lasciano mai il tuo Mac.",
+                Label("Free and fully local: your audio and text never leave your Mac.",
                       systemImage: "lock.shield.fill")
                     .font(.callout)
                     .foregroundStyle(.secondary)

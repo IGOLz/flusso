@@ -39,8 +39,8 @@ struct DictionaryView: View {
     var body: some View {
         PageScroll {
             PageHero(symbol: "character.book.closed.fill", color: .purple,
-                     title: "Il tuo dizionario",
-                     description: "Nomi, marchi e termini tecnici da scrivere sempre così. Dopo ogni dettatura Flusso corregge le parole che suonano o si scrivono in modo simile.")
+                     title: "Your Dictionary",
+                     description: "Names, brands, and technical terms that should always be spelled your way. After each dictation, Flusso corrects words that sound or are spelled similarly.")
 
             composer
 
@@ -50,32 +50,32 @@ struct DictionaryView: View {
                 tester
             }
         }
-        .searchable(text: $query, placement: .toolbar, prompt: "Cerca nel dizionario")
+        .searchable(text: $query, placement: .toolbar, prompt: "Search Dictionary")
     }
 
     // MARK: Add
 
     private var composer: some View {
         VStack(alignment: .leading, spacing: DS.headerSpacing) {
-            SectionTitle("Aggiungi una parola")
+            SectionTitle("Add a Word")
             VStack(spacing: 0) {
                 HStack(spacing: 10) {
                     Image(systemName: "plus.circle.fill")
                         .font(.system(size: 18))
                         .foregroundStyle(.tint)
-                    TextField("Parola o nome", text: $newTerm,
-                              prompt: Text("Una parola, un nome o un marchio — es. Flusso, SwiftUI, Craciun"))
+                    TextField("Word or name", text: $newTerm,
+                              prompt: Text("A word, name, or brand — e.g. Flusso, SwiftUI, Craciun"))
                         .textFieldStyle(.plain)
                         .font(.system(size: 14))
                         .focused($termFocused)
                         .onSubmit(add)
                     if isDuplicate {
-                        Text("Già nel dizionario")
+                        Text("Already in dictionary")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .transition(.opacity)
                     }
-                    Button("Aggiungi", action: add)
+                    Button("Add", action: add)
                         .glassProminentButtonStyle()
                         .disabled(trimmedTerm.isEmpty || isDuplicate)
                 }
@@ -89,8 +89,8 @@ struct DictionaryView: View {
                         Image(systemName: "arrow.uturn.left.circle")
                             .font(.system(size: 18))
                             .foregroundStyle(.secondary)
-                        TextField("Il modello la scrive come", text: $newSpokenAs,
-                                  prompt: Text("Come la scrive il modello — es. suift ui"))
+                        TextField("The model writes it as", text: $newSpokenAs,
+                                  prompt: Text("How the model writes it — e.g. swift you eye"))
                             .textFieldStyle(.plain)
                             .font(.system(size: 14))
                             .onSubmit(add)
@@ -103,11 +103,11 @@ struct DictionaryView: View {
             .cardSurface()
             .animation(.snappy, value: isDuplicate)
 
-            Toggle("Correggi una trascrizione specifica", isOn: $showSpokenAs.animation(.snappy))
+            Toggle("Correct a specific transcription", isOn: $showSpokenAs.animation(.snappy))
                 .toggleStyle(.checkbox)
                 .font(.callout)
                 .foregroundStyle(.secondary)
-                .help("Per parole molto diverse da come le trascrive il modello: indica cosa scrive, verrà sempre sostituito.")
+                .help("For words the model writes very differently: enter what it writes and it will always be replaced.")
                 .padding(.leading, 4)
         }
     }
@@ -119,21 +119,21 @@ struct DictionaryView: View {
         let count = entries.wrappedValue.count
         VStack(alignment: .leading, spacing: DS.headerSpacing) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                SectionTitle("Le tue parole")
+                SectionTitle("Your Words")
                 if count > 0 {
-                    Text(count == 1 ? "1 parola" : "\(count) parole")
+                    Text(count == 1 ? "1 word" : "\(count) words")
                         .font(.callout)
                         .foregroundStyle(.tertiary)
                 }
             }
             if count == 0 {
                 EmptyStateCard(symbol: "character.book.closed",
-                               title: "Nessuna parola ancora",
-                               message: "Le parole che aggiungi compaiono qui, pronte a essere riconosciute in ogni dettatura.")
+                               title: "No Words Yet",
+                               message: "Words you add appear here, ready to be recognized in every dictation.")
             } else if filtered.isEmpty {
                 EmptyStateCard(symbol: "magnifyingglass",
-                               title: "Nessun risultato",
-                               message: "Nessuna parola trovata per «\(query)».")
+                               title: "No Results",
+                               message: "No words found for “\(query)”.")
             } else {
                 FlowLayout(spacing: 8, lineSpacing: 8) {
                     ForEach(filtered) { entry in
@@ -152,14 +152,14 @@ struct DictionaryView: View {
     // MARK: Try it
 
     private var tester: some View {
-        SectionCard(title: "Prova",
-                    footer: "Scrivi una frase come la trascriverebbe il modello per vedere come la corregge il dizionario.") {
+        SectionCard(title: "Try It",
+                    footer: "Type a sentence the way the model would transcribe it to see how the dictionary corrects it.") {
             HStack(spacing: 10) {
                 Image(systemName: "text.cursor")
                     .foregroundStyle(.secondary)
                     .frame(width: 18)
-                TextField("Frase di prova", text: $sample,
-                          prompt: Text("es. ho aggiornato l'app in suift ui"))
+                TextField("Test sentence", text: $sample,
+                          prompt: Text("e.g. I rebuilt the app in swift you eye"))
                     .textFieldStyle(.plain)
             }
             .padding(.horizontal, DS.rowHPadding)
@@ -229,7 +229,7 @@ private struct WordChip: View {
                 }
                 .font(.callout)
                 .foregroundStyle(.secondary)
-                .help("Sostituisce «\(spoken)»")
+                .help("Replaces “\(spoken)”")
             }
             Button(action: onDelete) {
                 Image(systemName: "xmark.circle.fill")
@@ -238,7 +238,7 @@ private struct WordChip: View {
                     .foregroundStyle(hovering ? AnyShapeStyle(.secondary) : AnyShapeStyle(.tertiary))
             }
             .buttonStyle(.plain)
-            .help("Rimuovi dal dizionario")
+            .help("Remove from Dictionary")
         }
         .lineLimit(1)
         .fixedSize()
@@ -253,12 +253,12 @@ private struct WordChip: View {
         .onHover { hovering = $0 }
         .animation(.easeOut(duration: 0.12), value: hovering)
         .contextMenu {
-            Button("Copia", systemImage: "doc.on.doc") {
+            Button("Copy", systemImage: "doc.on.doc") {
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(entry.term, forType: .string)
             }
             Divider()
-            Button("Rimuovi", systemImage: "trash", role: .destructive, action: onDelete)
+            Button("Remove", systemImage: "trash", role: .destructive, action: onDelete)
         }
     }
 }

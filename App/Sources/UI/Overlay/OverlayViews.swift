@@ -86,7 +86,7 @@ struct PillView: View {
         .clipShape(Capsule())
         .modifier(OverlayChrome(shape: Capsule()))
         .accessibilityElement(children: .contain)
-        .accessibilityLabel(isProcessing ? "Trascrizione in corso" : "Registrazione in corso")
+        .accessibilityLabel(isProcessing ? "Transcribing" : "Recording")
     }
 
     private var buttonTransition: AnyTransition {
@@ -115,7 +115,7 @@ private struct PillButton: View {
         }
         .buttonStyle(PressScaleStyle())
         .onHover { hovered = $0 }
-        .accessibilityLabel(kind == .cancel ? "Annulla" : "Fine")
+        .accessibilityLabel(kind == .cancel ? "Cancel" : "Done")
     }
 }
 
@@ -224,7 +224,7 @@ struct ToastView: View {
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
-                Text("Nessun campo di testo attivo")
+                Text("No text field selected")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(.white)
                 Text(text)
@@ -275,7 +275,7 @@ private struct CopyButton: View {
                 }
                 .frame(width: 12, height: 12)
 
-                Text(copied ? "Copiato" : "Copia")
+                Text(copied ? "Copied" : "Copy")
                     .font(.system(size: 12, weight: .semibold))
                     .contentTransition(.opacity)
             }
@@ -288,7 +288,7 @@ private struct CopyButton: View {
         }
         .buttonStyle(PressScaleStyle())
         .animation(.spring(response: 0.3, dampingFraction: 0.75), value: copied)
-        .accessibilityLabel(copied ? "Copiato" : "Copia")
+        .accessibilityLabel(copied ? "Copied" : "Copy")
     }
 }
 
@@ -321,6 +321,6 @@ private struct CloseButton: View {
                 .contentShape(Circle())
         }
         .buttonStyle(PressScaleStyle())
-        .accessibilityLabel("Chiudi")
+        .accessibilityLabel("Close")
     }
 }

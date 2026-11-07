@@ -489,20 +489,20 @@ struct FlussoStatus {
         let model = ModelCatalog.model(id: AppSettings.shared.selectedModelID)
         switch (controller.phase, controller.engineStatus) {
         case (.recording, _):
-            return FlussoStatus(kind: .recording, title: "In ascolto…")
+            return FlussoStatus(kind: .recording, title: "Listening…")
         case (.transcribing, _):
-            return FlussoStatus(kind: .busy, title: "Trascrizione in corso…")
+            return FlussoStatus(kind: .busy, title: "Transcribing…")
         case (_, .loading):
-            return FlussoStatus(kind: .busy, title: "Caricamento di \(model?.name ?? "modello")…")
+            return FlussoStatus(kind: .busy, title: "Loading \(model?.name ?? "model")…")
         case (_, .noModel):
-            return FlussoStatus(kind: .warning, title: "Nessun modello installato")
+            return FlussoStatus(kind: .warning, title: "No model installed")
         case (_, .failed(let message)):
-            return FlussoStatus(kind: .error, title: "Errore del modello", detail: message)
+            return FlussoStatus(kind: .error, title: "Model error", detail: message)
         case (_, .ready):
             if permissions.allGranted {
-                return FlussoStatus(kind: .ready, title: "Pronto", detail: model?.name)
+                return FlussoStatus(kind: .ready, title: "Ready", detail: model?.name)
             }
-            return FlussoStatus(kind: .warning, title: "Permessi mancanti", detail: model?.name)
+            return FlussoStatus(kind: .warning, title: "Permissions needed", detail: model?.name)
         }
     }
 }
@@ -582,20 +582,25 @@ struct AppBadge: View {
 // MARK: - Formatting
 
 enum FlussoFormat {
-    static let italian = Locale(identifier: "it_IT")
+    /// The UI is English-only: dates and numbers are formatted in English
+    /// whatever the Mac's language.
+    static let locale = Locale(identifier: "en_US")
 
-    /// "Oggi", "Ieri", "Lunedì 3 novembre" (with the year if not this one).
+    /// "5 minutes ago", "yesterday"…
+    static let relative = Date.RelativeFormatStyle(presentation: .named, locale: locale)
+
+    /// "Today", "Yesterday", "Thursday, November 5" (with the year if not this one).
     static func dayTitle(_ day: Date, calendar: Calendar = .current) -> String {
-        if calendar.isDateInToday(day) { return "Oggi" }
-        if calendar.isDateInYesterday(day) { return "Ieri" }
-        var style = Date.FormatStyle(locale: italian).weekday(.wide).day().month(.wide)
+        if calendar.isDateInToday(day) { return "Today" }
+        if calendar.isDateInYesterday(day) { return "Yesterday" }
+        var style = Date.FormatStyle(locale: locale).weekday(.wide).month(.wide).day()
         if !calendar.isDate(day, equalTo: .now, toGranularity: .year) { style = style.year() }
-        let text = day.formatted(style)
-        return text.prefix(1).uppercased() + text.dropFirst()
+        return day.formatted(style)
     }
 
+    /// "9:41 AM".
     static func time(_ date: Date) -> String {
-        date.formatted(Date.FormatStyle(locale: italian).hour(.twoDigits(amPM: .omitted)).minute(.twoDigits))
+        date.formatted(Date.FormatStyle(locale: locale).hour(.defaultDigits(amPM: .abbreviated)).minute(.twoDigits))
     }
 
     /// "12 s", "1 min 5 s".
@@ -606,13 +611,13 @@ enum FlussoFormat {
         return rest == 0 ? "\(minutes) min" : "\(minutes) min \(rest) s"
     }
 
-    /// Value + unit for big numbers: ("12", "min"), ("1,5", "h").
+    /// Value + unit for big numbers: ("12", "min"), ("1.5", "h").
     static func savedTime(_ seconds: Double) -> (value: String, unit: String) {
         if seconds < 60 { return ("\(Int(seconds.rounded()))", "s") }
         let minutes = seconds / 60
         if minutes < 60 { return ("\(Int(minutes.rounded()))", "min") }
         let hours = minutes / 60
-        return (hours.formatted(.number.precision(.fractionLength(0...1)).locale(italian)), "h")
+        return (hours.formatted(.number.precision(.fractionLength(0...1)).locale(locale)), "h")
     }
 }
 
@@ -692,23 +697,23 @@ enum DebugSample {
         let now = Date.now
         func ago(_ minutes: Double) -> Date { now.addingTimeInterval(-minutes * 60) }
         return [
-            HistoryItem(text: "Ricordami di mandare a Giulia la bozza della presentazione entro venerdì, con i nuovi grafici sulle vendite.", date: ago(3), wasPasted: true, appName: "Notes", duration: 7),
-            HistoryItem(text: "Perfetto, ci vediamo domani alle 10 in ufficio.", date: ago(18), wasPasted: true, appName: "Messages", duration: 3),
-            HistoryItem(text: "Il problema nasce dal fatto che la toolbar viene creata solo nelle pagine con elementi: aggiungiamo una toolbar fissa alla finestra.", date: ago(52), wasPasted: true, appName: "Xcode", duration: 9),
-            HistoryItem(text: "Grazie mille per il feedback, lo integro nella prossima versione.", date: ago(60 * 26), wasPasted: true, appName: "Mail", duration: 4),
-            HistoryItem(text: "Lista della spesa: latte, pane, pomodori, basilico e parmigiano.", date: ago(60 * 29), wasPasted: false, appName: nil, duration: 5),
-            HistoryItem(text: "Domani riunione con il team di design per rivedere la nuova dashboard di Flusso.", date: ago(60 * 50), wasPasted: true, appName: "Calendar", duration: 6),
-            HistoryItem(text: "Ok, procedi pure con il merge.", date: ago(60 * 74), wasPasted: true, appName: "Slack", duration: 2),
+            HistoryItem(text: "Remind me to send Julia the draft of the presentation by Friday, with the new sales charts.", date: ago(3), wasPasted: true, appName: "Notes", duration: 7),
+            HistoryItem(text: "Perfect, see you tomorrow at 10 at the office.", date: ago(18), wasPasted: true, appName: "Messages", duration: 3),
+            HistoryItem(text: "The problem is that the toolbar is only created on pages that have items, so let's add a fixed toolbar to the window.", date: ago(52), wasPasted: true, appName: "Xcode", duration: 9),
+            HistoryItem(text: "Thanks so much for the feedback, I'll include it in the next version.", date: ago(60 * 26), wasPasted: true, appName: "Mail", duration: 4),
+            HistoryItem(text: "Shopping list: milk, bread, tomatoes, basil and parmesan.", date: ago(60 * 29), wasPasted: false, appName: nil, duration: 5),
+            HistoryItem(text: "Meeting with the design team tomorrow to review the new Flusso dashboard.", date: ago(60 * 50), wasPasted: true, appName: "Calendar", duration: 6),
+            HistoryItem(text: "OK, go ahead with the merge.", date: ago(60 * 74), wasPasted: true, appName: "Slack", duration: 2),
         ]
     }()
 
     static let dictionary: [DictionaryEntry] = [
         DictionaryEntry(term: "Flusso"),
-        DictionaryEntry(term: "SwiftUI", spokenAs: "suift ui"),
+        DictionaryEntry(term: "SwiftUI", spokenAs: "swift you eye"),
         DictionaryEntry(term: "Craciun"),
         DictionaryEntry(term: "Parakeet"),
         DictionaryEntry(term: "Liquid Glass"),
-        DictionaryEntry(term: "macOS", spokenAs: "mac o esse"),
+        DictionaryEntry(term: "macOS", spokenAs: "mac o s"),
         DictionaryEntry(term: "GitHub"),
         DictionaryEntry(term: "Xcode"),
     ]

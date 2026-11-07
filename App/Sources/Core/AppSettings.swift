@@ -64,7 +64,7 @@ final class AppSettings {
         ])
         holdShortcut = Self.load("holdShortcut", from: defaults) ?? .holdDefault
         lockShortcut = Self.load("lockShortcut", from: defaults) ?? .lockDefault
-        spokenLanguages = Self.load("spokenLanguages", from: defaults) ?? ["it"]
+        spokenLanguages = Self.load("spokenLanguages", from: defaults) ?? ["en"]
         dictionary = Self.load("dictionary", from: defaults) ?? []
         selectedModelID = defaults.string(forKey: "selectedModelID") ?? ModelCatalog.defaultModelID
         instantStart = defaults.bool(forKey: "instantStart")
