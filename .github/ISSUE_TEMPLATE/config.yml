@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 🎙️ Transcription engine or models
+    url: https://github.com/handy-computer/transcribe.cpp/issues
+    about: Problems with transcribe.cpp itself or the Parakeet models belong upstream.

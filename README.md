@@ -1,82 +1,138 @@
-# Flusso
+<p align="center">
+  <a href="https://github.com/IGOLz/flusso/releases/latest"><img src="https://img.shields.io/github/v/release/IGOLz/flusso?include_prereleases&style=for-the-badge&label=Release&color=7C4DFF&labelColor=ececec" alt="Latest release"></a>
+  <img src="https://img.shields.io/badge/macOS-14%2B-blue?style=for-the-badge&logo=apple&logoColor=000000&color=3F51B5&labelColor=ececec" alt="macOS 14 or later">
+  <img src="https://img.shields.io/badge/Swift-6-orange?style=for-the-badge&logo=swift&logoColor=000000&color=F05138&labelColor=ececec" alt="Swift 6">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue?style=for-the-badge&color=3F51B5&labelColor=ececec" alt="License: MIT"></a>
+</p>
 
-Dettatura vocale per macOS, gratuita e interamente locale. Una versione personale di
-[Wispr Flow](https://wisprflow.ai), costruita sul motore di trascrizione di
-[Handy](https://github.com/cjpais/handy).
+<p align="center">
+  <img src=".github/assets/icon.png" width="128" alt="Flusso icon">
+</p>
+<h1 align="center">Flusso</h1>
+<h3 align="center">Free, fully local voice dictation for the Mac: hold a key, speak, and the text appears where you type</h3>
+<br/>
 
-Tieni premuto **fn**, parla, rilascia: il testo compare nel campo dove si trova il cursore.
+<p align="center">
+  <img src=".github/assets/home.webp" alt="Flusso home screen">
+</p>
 
-## Funzionalità
+<p align="center">
+  <a href="https://github.com/IGOLz/flusso/releases/latest"><b>Download</b></a> ·
+  <a href="#features">Features</a> ·
+  <a href="#screenshots">Screenshots</a> ·
+  <a href="#build-from-source">Build</a> ·
+  <a href="#contributing">Contributing</a>
+</p>
 
-- **Tieni premuto per dettare**: tieni premuto `fn`, rilascia per trascrivere e incollare.
-- **Modalità mani libere**: `fn + Spazio` blocca la registrazione; premi di nuovo `fn + Spazio`,
-  tocca `fn` oppure clicca ✓ per terminare. `Esc` o × annullano.
-- **Incolla dove c'è il focus**: il testo viene incollato nel campo attivo dell'app in primo piano.
-  Se nessun campo di testo è attivo compare un riquadro con il pulsante **Copia** (scompare dopo 5 s).
-- **Dizionario**: aggiungi nomi, marchi e termini tecnici; dopo ogni dettatura le parole che
-  suonano o si scrivono in modo simile vengono corrette (stesso algoritmo di Handy). Puoi anche
-  indicare come il modello scrive una parola per sostituirla sempre (es. "igol punto dev" → "igol.dev").
-- **Avvio istantaneo** (opzionale, Impostazioni › Microfono): il microfono resta pronto, quindi la
-  registrazione parte in meno di 1 ms e include anche gli ultimi 300 ms *prima* della pressione del tasto.
-- **Modello Parakeet Ultra** (quello consigliato da Handy): 25 lingue europee con riconoscimento
-  automatico, italiano incluso. Si scarica dall'app (740 MB) e gira in locale su GPU (Metal):
-  pochi secondi di parlato vengono trascritti in circa 40 ms.
-- **Più lingue**: puoi parlare in qualsiasi lingua selezionata e passare da una all'altra.
-- Cronologia delle trascrizioni, scelta del microfono, suoni, avvio al login.
+> [!NOTE]
+> Flusso is an independent open-source project, inspired by [Wispr Flow](https://wisprflow.ai) and **not affiliated with it**. It runs on the transcription engine of [Handy](https://github.com/cjpais/handy).
 
-Le scorciatoie si possono cambiare in **Impostazioni › Scorciatoie**.
+## Why
 
-> Consiglio: in **Impostazioni di Sistema › Tastiera** imposta *"Premi il tasto 🌐 per"* su
-> *"Non fare nulla"*, altrimenti `fn` apre anche il pannello emoji.
+Cloud dictation apps send every word you say to a server and charge a monthly fee. Flusso transcribes on your Mac, with the open Parakeet models: nothing you say leaves the computer, it works offline, and it's free. It lives in the menu bar and pastes straight into the app you're using.
 
-## Requisiti
+## Install
 
-- macOS 14 Sonoma o successivo (Liquid Glass su macOS 26, aspetto standard sulle versioni precedenti)
-- Apple Silicon (GPU Metal) o Intel (CPU)
-- Permessi: **Microfono** e **Accessibilità** (per la scorciatoia globale e per incollare)
+1. Download **Flusso-x.y.z.dmg** from the [latest release](https://github.com/IGOLz/flusso/releases/latest).
+2. Open it and drag **Flusso** to Applications.
+3. Open Flusso and follow the setup: grant **Microphone** and **Accessibility** access, then download a model (about 740 MB).
 
-## Scaricare
+The app is signed with a Developer ID and notarized by Apple, so it opens without Gatekeeper warnings. It updates itself: it looks for a new version at launch and once a day, and asks before installing it. Choose **Check for Updates…** in the menu bar, or turn on automatic installs in **General › Updates**.
 
-Scarica l'ultima versione da [Releases](https://github.com/IGOLz/flusso/releases/latest)
-(`Flusso-<versione>.dmg`), aprila e trascina Flusso in Applicazioni. È firmata con Developer ID e
-notarizzata da Apple. Gli aggiornamenti successivi arrivano direttamente nell'app
-(Generali › Aggiornamenti), con lo stesso sistema Sparkle di ImmichGallery.
+**Requirements:** macOS 14 Sonoma or later. Flusso is a universal app: on Apple silicon it transcribes on the GPU with Metal, on Intel Macs on the CPU.
 
-## Pubblicare una versione
+On macOS 14 and 15 everything works the same; the interface uses standard translucent materials instead of Liquid Glass, which needs macOS 26.
 
-```bash
-# alza MARKETING_VERSION e CURRENT_PROJECT_VERSION in project.yml, poi:
-RELEASE_NOTES=note.md ./scripts/release.sh   # universale, firmata, notarizzata + appcast.xml
-./scripts/publish.sh                          # release GitHub: le app installate la ricevono
-```
+> [!TIP]
+> In **System Settings › Keyboard**, set *Press 🌐 key to* to *Do Nothing*, otherwise `fn` also opens the emoji picker.
 
-Dettagli in [docs/Updates.md](docs/Updates.md).
+## Features
 
-## Compilare e installare
+- **Hold to dictate**: hold `fn`, speak, release to transcribe and paste.
+- **Hands-free mode**: `fn` + `Space` locks recording. Press `fn` + `Space` again, tap `fn` or click ✓ to finish; `Esc` or × cancels.
+- **Pastes where you type**: the text goes into the focused field of the frontmost app. If no text field is focused, a small panel offers a **Copy** button.
+- **Dictionary**: add names, brands and technical terms. After each dictation, words that sound or are spelled similarly are corrected (the same algorithm as Handy). You can also map how the model writes a word to a fixed replacement, for example "igol dot dev" → "igol.dev".
+- **Instant start** (optional, Microphone settings): the microphone stays ready, so recording starts in under 1 ms and includes the 300 ms *before* you press the key.
+- **Parakeet Ultra** (Handy's recommended model): 25 European languages with automatic detection. It runs locally on the GPU; a few seconds of speech are transcribed in about 40 ms.
+- **Several languages**: speak any of the languages you selected and switch freely between them.
+- History of your transcriptions, filler-word removal, microphone choice, sounds and launch at login.
 
-```bash
+All shortcuts can be changed in **Shortcuts**.
+
+## Screenshots
+
+<p align="center">
+  <img src=".github/assets/history.webp" width="49%" alt="History of transcriptions">
+  <img src=".github/assets/dictionary.webp" width="49%" alt="Custom dictionary">
+</p>
+<p align="center">
+  <img src=".github/assets/shortcuts.webp" width="49%" alt="Shortcut settings">
+  <img src=".github/assets/models.webp" width="49%" alt="Model downloads">
+</p>
+
+## Privacy
+
+Your voice never leaves the Mac: recording and transcription happen entirely on device, and there is no analytics, no tracking and no account. Flusso connects to the internet only to:
+
+- **Download a model** from [Hugging Face](https://huggingface.co/handy-computer), when you choose one. The file is checked against its SHA-256 checksum.
+- **Check for updates** on GitHub (`github.com/IGOLz/flusso/releases`), at launch and once a day unless you turn it off.
+
+Your history (the last 100 transcriptions) and models are stored in `~/Library/Application Support/Flusso`; settings and the dictionary in the app's preferences.
+
+## Build from source
+
+You need Xcode 26 or later. The app builds with the macOS 26 SDK and runs on macOS 14 or later; APIs newer than macOS 14 are wrapped in `#available` checks in `App/Sources/UI/Compat.swift`.
+
+```sh
 brew install xcodegen cmake ninja
-git submodule update --init --recursive
-./scripts/install.sh          # compila e installa in /Applications/Flusso.app
+git clone --recursive https://github.com/IGOLz/flusso.git
+cd flusso
+./scripts/install.sh          # builds and installs /Applications/Flusso.app
 ```
 
-`scripts/build-engine.sh` compila [transcribe.cpp](https://github.com/handy-computer/transcribe.cpp)
-(il motore di Handy, incluso come submodule in `Vendor/`) come libreria statica con Metal.
-Il progetto Xcode viene generato da `project.yml` con XcodeGen.
+`scripts/build-engine.sh` builds [transcribe.cpp](https://github.com/handy-computer/transcribe.cpp) (Handy's engine, a submodule in `Vendor/`) as a universal static library with Metal. The Xcode project is generated from `project.yml` with XcodeGen.
 
-## Struttura
+<details>
+<summary><b>Project layout</b></summary>
 
-| Percorso | Contenuto |
+| Path | Contents |
 | --- | --- |
-| `App/Sources/App` | Avvio, orchestrazione (`AppController`), finestra principale |
-| `App/Sources/Audio` | Cattura microfono a 16 kHz con ring buffer e pre-roll |
-| `App/Sources/Input` | Scorciatoie globali (`CGEventTap` su un thread dedicato) |
-| `App/Sources/Engine` | Wrapper Swift di transcribe.cpp |
-| `App/Sources/Output` | Rilevamento del campo attivo (Accessibility) e incolla |
-| `App/Sources/Core` | Impostazioni, modelli, cronologia, permessi |
-| `App/Sources/UI` | Widget di registrazione, finestra principale, onboarding |
+| `App/Sources/App` | Launch, orchestration (`AppController`), main window, updates |
+| `App/Sources/Audio` | 16 kHz microphone capture with ring buffer and pre-roll |
+| `App/Sources/Input` | Global shortcuts (`CGEventTap` on a dedicated thread) |
+| `App/Sources/Engine` | Swift wrapper around transcribe.cpp |
+| `App/Sources/Output` | Focused-field detection (Accessibility) and paste |
+| `App/Sources/Core` | Settings, models, history, dictionary, permissions |
+| `App/Sources/UI` | Recording overlay, main window, onboarding |
+| `scripts/` | Engine build, install, release, DMG and icon scripts |
+| `docs/` | [Updates](docs/Updates.md) and [release issues](docs/ReleaseIssues.md) |
 
-## Licenze
+</details>
 
-Flusso è distribuito con licenza MIT. Usa transcribe.cpp (MIT) e i modelli Parakeet pubblicati da
-[handy-computer](https://huggingface.co/handy-computer) (CC-BY-4.0).
+<details>
+<summary><b>Releasing</b></summary>
+
+Bump `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` in `project.yml`, then:
+
+```sh
+RELEASE_NOTES=notes.md ./scripts/release.sh   # universal, signed, notarized DMG + ZIP + appcast.xml
+./scripts/publish.sh                          # GitHub release: installed apps receive it
+```
+
+`release.sh` loads machine-local notarization settings from `.release.env`, which Git ignores. Details on the update feed, the signing key and notarization are in [docs/Updates.md](docs/Updates.md). Issues marked `ready-for-release` in the release's milestone are closed automatically when it's published; see [docs/ReleaseIssues.md](docs/ReleaseIssues.md).
+
+</details>
+
+## Contributing
+
+Bug reports, ideas and pull requests are welcome: open an [issue](https://github.com/IGOLz/flusso/issues) or a PR. Reference issues with `Refs #N` rather than `Fixes #N`: an issue is closed when its fix ships in a stable release.
+
+## Acknowledgements
+
+- [Handy](https://github.com/cjpais/handy) and [transcribe.cpp](https://github.com/handy-computer/transcribe.cpp), the open-source engine Flusso runs on, and the dictionary-matching algorithm.
+- The Parakeet models published by [handy-computer](https://huggingface.co/handy-computer) (CC-BY-4.0), based on NVIDIA's Parakeet.
+- [Sparkle](https://sparkle-project.org), for in-app updates.
+
+## License
+
+Flusso is released under the [MIT License](LICENSE). transcribe.cpp is MIT-licensed; the Parakeet models are CC-BY-4.0.

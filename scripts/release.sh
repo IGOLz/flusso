@@ -6,16 +6,25 @@
 #
 # Requirements (one-time, same account as QuotaDeck/ImmichGallery):
 #   - "Developer ID Application" certificate in the login keychain
-#   - Notary credentials:  xcrun notarytool store-credentials quotadeck-notary \
-#                            --apple-id <apple-id> --team-id 884UZN5CH3
+#   - Notary credentials, either:
+#       NOTARY_PROFILE=<name>   (xcrun notarytool store-credentials; default quotadeck-notary)
+#     or an App Store Connect API key:
+#       NOTARY_KEY=/path/AuthKey_XXXX.p8 NOTARY_KEY_ID=XXXX NOTARY_ISSUER=<issuer-uuid>
+#     Both can be kept in .release.env at the repo root (ignored by Git).
 #   - The Sparkle EdDSA private key in the login keychain (shared with ImmichGallery)
 #
+#   - A logged-in desktop session: Finder lays out the DMG window (scripts/create-dmg.sh)
+#
 # Usage:  RELEASE_NOTES=notes.md ./scripts/release.sh
-# Optional env: NOTARY_PROFILE (default quotadeck-notary)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
+
+# Machine-local notarization configuration, intentionally excluded from version control.
+if [[ -f .release.env ]]; then
+  source .release.env
+fi
 
 APP=Flusso
 OUT=build/release
@@ -23,7 +32,11 @@ DERIVED=build/dd-release
 PACKAGES=build/SourcePackages
 SPARKLE_BIN=$PACKAGES/artifacts/sparkle/Sparkle/bin
 REPO_URL=https://github.com/IGOLz/flusso
-PROFILE="${NOTARY_PROFILE:-quotadeck-notary}"
+if [[ -n "${NOTARY_KEY:-}" && -n "${NOTARY_KEY_ID:-}" && -n "${NOTARY_ISSUER:-}" && -z "${NOTARY_PROFILE:-}" ]]; then
+  NOTARY_ARGS=(--key "$NOTARY_KEY" --key-id "$NOTARY_KEY_ID" --issuer "$NOTARY_ISSUER")
+else
+  NOTARY_ARGS=(--keychain-profile "${NOTARY_PROFILE:-quotadeck-notary}")
+fi
 [[ -z "${RELEASE_NOTES:-}" || -f "$RELEASE_NOTES" ]] || { echo "RELEASE_NOTES file not found: $RELEASE_NOTES" >&2; exit 1; }
 
 IDENTITY="$(security find-identity -v -p codesigning \
@@ -38,12 +51,12 @@ fi
 notarize() {
   local result id status
   echo "→ Notarizing $1"
-  result="$(xcrun notarytool submit "$1" --keychain-profile "$PROFILE" --wait --timeout 30m --output-format json)"
+  result="$(xcrun notarytool submit "$1" "${NOTARY_ARGS[@]}" --wait --timeout 30m --output-format json)"
   id="$(/usr/bin/python3 -I -c 'import json,sys; print(json.load(sys.stdin)["id"])' <<<"$result")"
   status="$(/usr/bin/python3 -I -c 'import json,sys; print(json.load(sys.stdin)["status"])' <<<"$result")"
   echo "  $id: $status"
   if [[ "$status" != "Accepted" ]]; then
-    xcrun notarytool log "$id" --keychain-profile "$PROFILE" >&2 || true
+    xcrun notarytool log "$id" "${NOTARY_ARGS[@]}" >&2 || true
     exit 1
   fi
 }
@@ -94,11 +107,8 @@ rm "$OUT/$APP-notarize.zip"
 ditto -c -k --keepParent "$OUT/$APP.app" "$OUT/$APP-$VERSION.zip"
 
 # 5. Drag-to-Applications disk image, signed, notarized and stapled.
-STAGE="$(mktemp -d)"
-ditto "$OUT/$APP.app" "$STAGE/$APP.app"
-ln -s /Applications "$STAGE/Applications"
-hdiutil create -volname "$APP" -srcfolder "$STAGE" -fs HFS+ -format UDZO -ov "$OUT/$APP-$VERSION.dmg" >/dev/null
-rm -rf "$STAGE"
+#    Background, icon layout and window size come from scripts/create-dmg.sh.
+scripts/create-dmg.sh "$OUT/$APP.app" "$VERSION" "$OUT/$APP-$VERSION.dmg"
 codesign --force --sign "$IDENTITY" --timestamp "$OUT/$APP-$VERSION.dmg"
 notarize "$OUT/$APP-$VERSION.dmg"
 xcrun stapler staple "$OUT/$APP-$VERSION.dmg"

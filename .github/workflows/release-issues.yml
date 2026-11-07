@@ -1,0 +1,45 @@
+name: Close released issues
+
+on:
+  release:
+    types: [released]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Published stable release tag (for example v0.4.3)
+        required: true
+        type: string
+      dry_run:
+        description: Preview without posting comments or closing issues
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  issues: write
+
+# Serialize retries per tag; dry runs cannot displace a real release run.
+concurrency:
+  group: release-issues-${{ github.event.release.tag_name || inputs.tag }}-${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && 'preview' || 'write' }}
+  cancel-in-progress: false
+
+jobs:
+  close-issues:
+    if: github.event_name == 'workflow_dispatch' || (!github.event.release.prerelease && !github.event.release.draft)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Test release automation
+        run: node --test Tests/ReleaseIssuesChecks.cjs
+      - name: Complete released issues
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && 'true' || 'false' }}
+        with:
+          script: |
+            const complete = require('./scripts/release-issues.cjs');
+            await complete({github, context, core, tag: process.env.RELEASE_TAG, dryRun: process.env.DRY_RUN === 'true'});

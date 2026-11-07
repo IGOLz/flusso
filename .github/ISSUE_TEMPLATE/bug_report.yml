@@ -1,0 +1,25 @@
+name: 🐛 Bug report
+description: Something in Flusso isn't working as expected
+labels: [bug]
+body:
+  - type: textarea
+    attributes:
+      label: What happened?
+      description: What you did, and what went wrong. Screenshots are welcome — just drag them here.
+    validations:
+      required: true
+
+  - type: input
+    attributes:
+      label: Flusso version
+      placeholder: "0.3.1"
+
+  - type: input
+    attributes:
+      label: macOS version and Mac
+      placeholder: "macOS 26.1, MacBook Air M2"
+
+  - type: input
+    attributes:
+      label: Microphone and app you were dictating into
+      placeholder: "AirPods Pro, Slack"

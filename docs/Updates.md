@@ -1,52 +1,48 @@
-# Aggiornamenti in-app
+# In-app updates
 
-Flusso si aggiorna da solo con [Sparkle 2](https://sparkle-project.org), lo stesso sistema di
-ImmichGallery.
+Flusso updates itself with [Sparkle 2](https://sparkle-project.org), the same setup as Immich Gallery.
 
-## Cosa vede l'utente
+## What users see
 
-- **Menu barra › Verifica aggiornamenti…** e **Generali › Aggiornamenti › Verifica aggiornamenti…**
-  controllano subito e mostrano il risultato.
-- In **Generali › Aggiornamenti**:
-  - *Cerca aggiornamenti automaticamente* (attivo di default): un controllo all'avvio e uno al giorno.
-  - *Scarica e installa automaticamente* (disattivo di default): l'aggiornamento viene scaricato in
-    silenzio e installato alla chiusura dell'app.
-- Quando c'è una nuova versione si apre la finestra di Sparkle con le note di rilascio e i pulsanti
-  *Installa*, *Ricordamelo più tardi*, *Salta questa versione*.
+- **Menu bar › Check for Updates…** and **General › Updates › Check for Updates…** check right away and show the result.
+- In **General › Updates**:
+  - *Check for updates automatically* (on by default): one check at launch and one a day.
+  - *Download and install automatically* (off by default): the update is downloaded silently and installed when the app quits.
+- When a new version is available, Sparkle's window opens with the release notes and *Install*, *Remind Me Later* and *Skip This Version*.
 
-Tutto è in `App/Sources/App/AppUpdater.swift`. Le build Debug non si aggiornano.
+Everything lives in `App/Sources/App/AppUpdater.swift`. Debug builds never update.
 
-## Come funziona
+## How it works
 
-- `App/Info.plist`: `SUFeedURL` (dal build setting `SPARKLE_FEED_URL`), `SUPublicEDKey`,
-  `SUEnableAutomaticChecks`.
-- Il feed è `https://github.com/IGOLz/flusso/releases/latest/download/appcast.xml`: il file
-  `appcast.xml` allegato alla release GitHub **latest**. Pre-release e bozze non sono mai "latest".
-- Ogni aggiornamento è lo `.zip` della release, firmato con una chiave EdDSA. Sparkle rifiuta un
-  aggiornamento con firma diversa da `SUPublicEDKey` o con un team Developer ID diverso.
-- Sparkle confronta `CFBundleVersion` (`CURRENT_PROJECT_VERSION` in `project.yml`): **aumenta il
-  numero di build a ogni release**, insieme a `MARKETING_VERSION`.
+- `App/Info.plist`: `SUFeedURL` (from the `SPARKLE_FEED_URL` build setting), `SUPublicEDKey`, `SUEnableAutomaticChecks`.
+- The feed is `https://github.com/IGOLz/flusso/releases/latest/download/appcast.xml`: the `appcast.xml` attached to the **latest** GitHub release. Prereleases and drafts are never "latest".
+- Each update is the release's `.zip`, signed with an EdDSA key. Sparkle rejects an update whose signature doesn't match `SUPublicEDKey`, or whose Developer ID team differs.
+- Sparkle compares `CFBundleVersion` (`CURRENT_PROJECT_VERSION` in `project.yml`): **increase the build number on every release**, together with `MARKETING_VERSION`.
 
-## Pubblicare una versione
+## Publishing a version
 
 ```sh
-RELEASE_NOTES=note.md ./scripts/release.sh   # build universale, firma, notarizzazione, appcast.xml
-./scripts/publish.sh                          # release GitHub con dmg, zip, appcast, checksum
+RELEASE_NOTES=notes.md ./scripts/release.sh   # universal build, signing, notarization, appcast.xml
+./scripts/publish.sh                          # GitHub release with dmg, zip, appcast, checksums
 ```
 
-`release.sh` firma gli helper di Sparkle con il Developer ID, notarizza app e DMG, scarica il feed
-pubblicato e ci aggiunge la nuova versione con `generate_appcast` (le voci precedenti restano).
-`publish.sh` crea la release come bozza, carica i file e solo dopo la pubblica, così le app
-installate non vedono mai un feed che punta a uno `.zip` non ancora caricato. Usa `--prerelease`
-per una versione di prova che le app installate non devono ricevere.
+`release.sh` signs Sparkle's helpers with the Developer ID, notarizes the app and the DMG, downloads the published feed and adds the new version with `generate_appcast` (earlier entries are kept). `publish.sh` creates the release as a draft, uploads the files and only then publishes it, so installed apps never see a feed pointing at a `.zip` that isn't uploaded yet. Use `--prerelease` for a test version that installed apps must not receive.
 
-## La chiave di firma
+Notarization uses the `quotadeck-notary` Keychain profile by default. To use another profile or an App Store Connect API key, put the settings in `.release.env` at the repository root (Git ignores it) and keep the `.p8` key in `~/.appstoreconnect/private_keys/`:
 
-La chiave privata EdDSA è nel portachiavi del Mac di release (elemento "Private key for signing
-Sparkle updates", account `ed25519`), condivisa con ImmichGallery. La prima volta che
-`generate_appcast` la usa, macOS chiede l'accesso: scegli **Consenti sempre**.
+```sh
+: "${NOTARY_KEY:=$HOME/.appstoreconnect/private_keys/AuthKey_YOUR_KEY_ID.p8}"
+: "${NOTARY_KEY_ID:=YOUR_KEY_ID}"
+: "${NOTARY_ISSUER:=YOUR_ISSUER_ID}"
+```
 
-**Fanne un backup**: se va persa, le app installate non possono più aggiornarsi da sole.
+The DMG is built by `scripts/create-dmg.sh` (background drawn by `scripts/dmg/background.swift`). Finder saves the window layout through AppleScript, so the release must run in a logged-in desktop session with Finder automation allowed.
+
+## The signing key
+
+The EdDSA private key is in the release Mac's login keychain (item "Private key for signing Sparkle updates", account `ed25519`), shared with Immich Gallery. The first time `generate_appcast` uses it, macOS asks for access: choose **Always Allow**.
+
+**Back it up**: if it's lost, installed apps can no longer update themselves.
 
 ```sh
 build/SourcePackages/artifacts/sparkle/Sparkle/bin/generate_keys -x sparkle-private-key.txt
