@@ -85,8 +85,9 @@ FEED_URL="$(/usr/libexec/PlistBuddy -c 'Print :SUFeedURL' "$OUT/$APP.app/Content
 echo "→ $APP $VERSION — $(lipo -archs "$OUT/$APP.app/Contents/MacOS/$APP") — $IDENTITY"
 
 # 2. Sparkle ships its helpers ad-hoc signed: sign them with the Developer ID
-#    (no --deep: the Downloader has its own entitlements), then re-seal the app.
-echo "→ Signing Sparkle helpers"
+#    (no --deep: the Downloader has its own entitlements), and the llama.cpp
+#    library with a secure timestamp, then re-seal the app.
+echo "→ Signing Sparkle helpers and libraries"
 SPARKLE="$OUT/$APP.app/Contents/Frameworks/Sparkle.framework"
 resign() { codesign --force --sign "$IDENTITY" --options runtime --timestamp "$@"; }
 resign "$SPARKLE/Versions/B/XPCServices/Installer.xpc"
@@ -94,6 +95,8 @@ resign --preserve-metadata=entitlements "$SPARKLE/Versions/B/XPCServices/Downloa
 resign "$SPARKLE/Versions/B/Autoupdate"
 resign "$SPARKLE/Versions/B/Updater.app"
 resign "$SPARKLE"
+# llama.cpp for smart formatting (scripts/build-llm.sh).
+resign "$OUT/$APP.app/Contents/Frameworks/libflusso-llm.dylib"
 resign --entitlements App/Flusso.entitlements "$OUT/$APP.app"
 codesign --verify --deep --strict "$OUT/$APP.app"
 if codesign -d --entitlements - "$OUT/$APP.app" 2>/dev/null | grep -q get-task-allow; then
