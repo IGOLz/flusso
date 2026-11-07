@@ -24,6 +24,9 @@ final class AppSettings {
     /// Words to always spell as written (see `CustomDictionary`).
     var dictionary: [DictionaryEntry] { didSet { save(dictionary, "dictionary") } }
 
+    /// Self-corrections and spoken lists fixed with Apple's on-device model.
+    var smartFormatting: Bool { didSet { defaults.set(smartFormatting, forKey: "smartFormatting") } }
+
     /// Offer words the user corrects after a dictation for the dictionary.
     var learnWords: Bool { didSet { defaults.set(learnWords, forKey: "learnWords") } }
     /// Suggestions the user declined: never offered again.
@@ -81,6 +84,7 @@ final class AppSettings {
             "removeFillerWords": true,
             "keepAudio": true,
             "learnWords": true,
+            "smartFormatting": true,
             "hasCompletedOnboarding": false,
         ])
         #if DEBUG
@@ -96,6 +100,7 @@ final class AppSettings {
         dictionary = Self.load("dictionary", from: defaults) ?? []
         snippets = Self.load("snippets", from: defaults) ?? []
         learnWords = defaults.bool(forKey: "learnWords")
+        smartFormatting = defaults.bool(forKey: "smartFormatting")
         declinedWords = Self.load("declinedWords", from: defaults) ?? []
         selectedModelID = defaults.string(forKey: "selectedModelID") ?? ModelCatalog.defaultModelID
         instantStart = defaults.bool(forKey: "instantStart")

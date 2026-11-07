@@ -150,6 +150,7 @@ final class AppController {
         observeSettings()
         observePermissions()
         corrections.onCorrection = { word in AppController.shared.offerLearnedWord(word) }
+        if settings.smartFormatting { SmartFormatter.prewarm() }
 
         for name in [NSApplication.didBecomeActiveNotification, NSApplication.didResignActiveNotification] {
             NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { _ in
@@ -357,7 +358,8 @@ final class AppController {
     /// Audio → final text: transcription, cleanup, snippets and dictionary.
     private func transcribeText(_ samples: [Float]) async throws -> String {
         let raw = try await engine.transcribe(samples, language: nil, skipSilence: settings.skipSilence)
-        let cleaned = TextCleanup.clean(raw, removeFillers: settings.removeFillerWords)
+        var cleaned = TextCleanup.clean(raw, removeFillers: settings.removeFillerWords)
+        if settings.smartFormatting { cleaned = await SmartFormatter.format(cleaned) }
         let entries = settings.dictionary
         let snippets = settings.snippets
         guard !entries.isEmpty || !snippets.isEmpty else { return cleaned }
