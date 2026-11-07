@@ -13,6 +13,8 @@ final class AppSettings {
     var holdShortcut: Shortcut { didSet { save(holdShortcut, "holdShortcut") } }
     /// Press once to lock recording on, press again to stop and transcribe.
     var lockShortcut: Shortcut { didSet { save(lockShortcut, "lockShortcut") } }
+    /// Pastes the latest transcription again. `.none` = disabled.
+    var pasteLastShortcut: Shortcut { didSet { save(pasteLastShortcut, "pasteLastShortcut") } }
 
     /// Languages the user speaks. Empty = automatic detection.
     /// Parakeet detects the language on its own; this list is a hint and
@@ -62,8 +64,15 @@ final class AppSettings {
             "removeFillerWords": true,
             "hasCompletedOnboarding": false,
         ])
-        holdShortcut = Self.load("holdShortcut", from: defaults) ?? .holdDefault
-        lockShortcut = Self.load("lockShortcut", from: defaults) ?? .lockDefault
+        #if DEBUG
+        // Screenshots show the default shortcuts, whatever this Mac has saved.
+        let useDefaults = DebugSample.isEnabled
+        #else
+        let useDefaults = false
+        #endif
+        holdShortcut = useDefaults ? .holdDefault : Self.load("holdShortcut", from: defaults) ?? .holdDefault
+        lockShortcut = useDefaults ? .lockDefault : Self.load("lockShortcut", from: defaults) ?? .lockDefault
+        pasteLastShortcut = useDefaults ? .pasteLastDefault : Self.load("pasteLastShortcut", from: defaults) ?? .pasteLastDefault
         spokenLanguages = Self.load("spokenLanguages", from: defaults) ?? ["en"]
         dictionary = Self.load("dictionary", from: defaults) ?? []
         selectedModelID = defaults.string(forKey: "selectedModelID") ?? ModelCatalog.defaultModelID

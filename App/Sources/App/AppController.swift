@@ -120,6 +120,8 @@ final class AppController {
                 DispatchQueue.main.async { AppController.shared.cancelRecording() }
             case .holdInterrupted:
                 DispatchQueue.main.async { AppController.shared.handleHoldInterrupted(at: time) }
+            case .pasteLast:
+                DispatchQueue.main.async { AppController.shared.pasteLastTranscription(waitForModifiers: true) }
             }
         }
     }
@@ -130,7 +132,7 @@ final class AppController {
         guard !started else { return }
         started = true
 
-        hotkeys.update(hold: settings.holdShortcut, lock: settings.lockShortcut)
+        hotkeys.update(hold: settings.holdShortcut, lock: settings.lockShortcut, pasteLast: settings.pasteLastShortcut)
         startHotkeysIfPossible()
         configureRecorder()
         loadSelectedModel()
@@ -166,6 +168,11 @@ final class AppController {
         if settings.selectedModelID != model.id { settings.selectedModelID = model.id }
         loadSelectedModel()
     }
+
+    #if DEBUG
+    /// Screenshots (`FLUSSO_DEBUG_SAMPLE=1`): show a ready engine without loading a model.
+    func showSampleReadyState() { engineStatus = .ready }
+    #endif
 
     private func loadSelectedModel() {
         let selected = ModelCatalog.model(id: settings.selectedModelID) ?? ModelCatalog.models[0]
@@ -353,6 +360,47 @@ final class AppController {
         }
     }
 
+    // MARK: - Paste last
+
+    /// Pastes the most recent transcription again where the user is typing
+    /// (e.g. after dictating into the wrong field).
+    /// - Parameter waitForModifiers: triggered by a global shortcut whose
+    ///   modifiers are still held; wait for their release so the synthetic
+    ///   ⌘V isn't combined with them.
+    /// - Parameter fromMenu: give the menu bar menu time to close first.
+    func pasteLastTranscription(waitForModifiers: Bool = false, fromMenu: Bool = false) {
+        guard phase == .idle, !pastingLast else { return }
+        guard let text = HistoryStore.shared.items.first?.text, !text.isEmpty else {
+            NSSound.beep()
+            return
+        }
+        pastingLast = true
+        Task {
+            defer { pastingLast = false }
+            // Still held: a synthetic ⌘V would combine with them (and could
+            // even match the shortcut itself and be swallowed).
+            if waitForModifiers, await !Self.waitForModifierRelease() { return }
+            if fromMenu { try? await Task.sleep(for: .milliseconds(250)) }
+            // A dictation may have started while waiting.
+            guard phase == .idle else { return }
+            let outcome = await inserter.insert(text, restoreClipboard: settings.restoreClipboard)
+            if outcome == .noFocusedField { OverlayController.shared.showNotPasted(text: text) }
+        }
+    }
+
+    @ObservationIgnored private var pastingLast = false
+
+    /// Waits (up to 5 s) until no modifier key is physically held.
+    /// Returns false if they are still held.
+    private static func waitForModifierRelease() async -> Bool {
+        let modifiers: CGEventFlags = [.maskCommand, .maskControl, .maskAlternate, .maskShift, .maskSecondaryFn]
+        for _ in 0..<250 {
+            if CGEventSource.flagsState(.combinedSessionState).intersection(modifiers).isEmpty { return true }
+            try? await Task.sleep(for: .milliseconds(20))
+        }
+        return false
+    }
+
     private func notifyNoModel() {
         NSSound.beep()
         MainWindowController.shared.show()
@@ -376,12 +424,14 @@ final class AppController {
         withObservationTracking {
             _ = settings.holdShortcut
             _ = settings.lockShortcut
+            _ = settings.pasteLastShortcut
             _ = settings.instantStart
             _ = settings.microphoneUID
         } onChange: {
             Task { @MainActor in
                 let c = AppController.shared
-                c.hotkeys.update(hold: c.settings.holdShortcut, lock: c.settings.lockShortcut)
+                c.hotkeys.update(hold: c.settings.holdShortcut, lock: c.settings.lockShortcut,
+                                  pasteLast: c.settings.pasteLastShortcut)
                 c.configureRecorder()
                 c.observeSettings()
             }

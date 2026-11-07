@@ -2,16 +2,40 @@ import AppKit
 import Carbon.HIToolbox
 import SwiftUI
 
-/// Which of the two global shortcuts a recorder edits.
-enum ShortcutKind {
-    case hold, lock
+/// Which global shortcut a recorder edits.
+enum ShortcutKind: CaseIterable {
+    case hold, lock, pasteLast
 
     var name: String {
         switch self {
         case .hold: "hold to dictate"
         case .lock: "hands-free mode"
+        case .pasteLast: "paste last transcription"
         }
     }
+
+    @MainActor
+    var current: Shortcut {
+        let settings = AppSettings.shared
+        switch self {
+        case .hold: return settings.holdShortcut
+        case .lock: return settings.lockShortcut
+        case .pasteLast: return settings.pasteLastShortcut
+        }
+    }
+
+    @MainActor
+    func set(_ shortcut: Shortcut) {
+        let settings = AppSettings.shared
+        switch self {
+        case .hold: settings.holdShortcut = shortcut
+        case .lock: settings.lockShortcut = shortcut
+        case .pasteLast: settings.pasteLastShortcut = shortcut
+        }
+    }
+
+    /// Only the paste shortcut can be turned off.
+    var canBeDisabled: Bool { self == .pasteLast }
 }
 
 /// Key-cap style control that records a new global shortcut.
@@ -26,25 +50,46 @@ struct ShortcutRecorder: View {
     /// The whole combination is physically held right now.
     @State private var fullyPressed = false
 
-    init(_ kind: ShortcutKind) { self.kind = kind }
+    /// Reserves the space of the "turn off" button, so recorders stacked
+    /// with a clearable one line up.
+    private let reservesClearSpace: Bool
 
-    private var shortcut: Shortcut {
-        kind == .hold ? settings.holdShortcut : settings.lockShortcut
+    init(_ kind: ShortcutKind, reservesClearSpace: Bool = false) {
+        self.kind = kind
+        self.reservesClearSpace = reservesClearSpace
     }
 
-    private var otherShortcut: Shortcut {
-        kind == .hold ? settings.lockShortcut : settings.holdShortcut
+    private var shortcut: Shortcut {
+        _ = settings.holdShortcut; _ = settings.lockShortcut; _ = settings.pasteLastShortcut
+        return kind.current
     }
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 4) {
-            Button {
-                if capture.isCapturing { capture.cancel() } else { start() }
-            } label: {
-                label
+            HStack(spacing: 6) {
+                Button {
+                    if capture.isCapturing { capture.cancel() } else { start() }
+                } label: {
+                    label
+                }
+                .buttonStyle(.plain)
+                .help(capture.isCapturing ? "Press the new combination, or Esc to cancel" : "Click to change the shortcut")
+
+                if kind.canBeDisabled, !shortcut.isEmpty, !capture.isCapturing {
+                    Button {
+                        withAnimation(.snappy) { kind.set(.none) }
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.tertiary)
+                            .frame(width: 16)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Turn off this shortcut")
+                    .accessibilityLabel("Turn off this shortcut")
+                } else if kind.canBeDisabled || reservesClearSpace {
+                    Color.clear.frame(width: 16, height: 1)
+                }
             }
-            .buttonStyle(.plain)
-            .help(capture.isCapturing ? "Press the new combination, or Esc to cancel" : "Click to change the shortcut")
 
             if let message = capture.message {
                 Text(message)
@@ -73,6 +118,10 @@ struct ShortcutRecorder: View {
                 Text("Press Keys…")
                     .foregroundStyle(.tint)
                     .font(.callout.weight(.medium))
+            } else if shortcut.isEmpty {
+                Text("Off")
+                    .font(.callout.weight(.medium))
+                    .foregroundStyle(.secondary)
             } else {
                 LiveShortcutCaps(shortcut: shortcut) { fullyPressed = $0 }
                 // Space is always reserved so the layout doesn't shift.
@@ -110,25 +159,26 @@ struct ShortcutRecorder: View {
         fullyPressed = false
         capture.start { candidate in
             if let error = validate(candidate) { return error }
-            switch kind {
-            case .hold: settings.holdShortcut = candidate
-            case .lock: settings.lockShortcut = candidate
-            }
+            kind.set(candidate)
             return nil
         }
     }
 
     /// Returns an error message, or nil if the shortcut is acceptable.
     private func validate(_ candidate: Shortcut) -> String? {
+        if kind == .pasteLast, candidate.isModifierOnly {
+            return "Use a key with modifiers, like ⌃ ⌘ V."
+        }
         if let keyCode = candidate.keyCode {
             let meaningful = candidate.modifiers.subtracting([.leftShift, .rightShift])
             if meaningful.isEmpty && !ShortcutCapture.isFunctionKey(keyCode) {
                 return "Add a modifier (fn, ⌃, ⌥, or ⌘) — a key on its own would get in the way of typing."
             }
         }
-        if ShortcutCapture.conflicts(candidate, otherShortcut) {
-            let other = kind == .hold ? ShortcutKind.lock : .hold
-            return "This shortcut is already used for \(other.name)."
+        for other in ShortcutKind.allCases where other != kind {
+            if ShortcutCapture.conflicts(candidate, other.current) {
+                return "This shortcut is already used for \(other.name)."
+            }
         }
         return nil
     }
@@ -269,7 +319,7 @@ final class ShortcutCapture {
 
     /// Whether two shortcuts would trigger on the same input.
     static func conflicts(_ a: Shortcut, _ b: Shortcut) -> Bool {
-        guard a.keyCode == b.keyCode else { return false }
+        guard !a.isEmpty, !b.isEmpty, a.keyCode == b.keyCode else { return false }
         if a.keyCode == nil { return a.modifiers == b.modifiers }
         return a.modifiers.sideAgnostic == b.modifiers.sideAgnostic
     }

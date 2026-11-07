@@ -313,6 +313,12 @@ private struct ShortcutsCard: View {
             ShortcutLine(symbol: "lock.fill", color: .blue,
                          title: "Hands-free", help: "Press once to start, again to stop",
                          shortcut: settings.lockShortcut)
+            if !settings.pasteLastShortcut.isEmpty {
+                Divider()
+                ShortcutLine(symbol: "arrow.uturn.backward", color: .purple,
+                             title: "Paste last", help: "Paste your latest transcription again",
+                             shortcut: settings.pasteLastShortcut)
+            }
             Spacer(minLength: 0)
         }
         .padding(16)

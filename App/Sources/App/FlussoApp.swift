@@ -26,6 +26,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // UI-only instance (screenshots, design work): no global shortcuts,
         // no microphone, so it can't interfere with the installed Flusso.
         if ProcessInfo.processInfo.environment["FLUSSO_UI_ONLY"] == "1" {
+            if DebugSample.isEnabled { AppController.shared.showSampleReadyState() }
             MainWindowController.shared.show()
             return
         }
@@ -72,6 +73,9 @@ private struct MenuBarMenu: View {
         Divider()
         Text("Hold \(settings.holdShortcut.displayString) to dictate")
         Text("\(settings.lockShortcut.displayString) for hands-free mode")
+        Divider()
+        Button("Paste Last Transcription") { controller.pasteLastTranscription(fromMenu: true) }
+            .disabled(HistoryStore.shared.items.isEmpty || controller.phase != .idle)
         Divider()
         Button("Quit Flusso") { NSApp.terminate(nil) }
             .keyboardShortcut("q")

@@ -15,6 +15,8 @@ nonisolated enum HotkeyEvent: Sendable {
     /// Another key was pressed while the hold shortcut was down: the user is
     /// probably using it as a modifier (e.g. fn + ←).
     case holdInterrupted
+    /// The "paste last transcription" shortcut was pressed.
+    case pasteLast
 }
 
 /// Global shortcut detection via a `CGEventTap` running on its own thread,
@@ -28,6 +30,7 @@ nonisolated final class HotkeyMonitor: @unchecked Sendable {
     private struct Config {
         var hold: Shortcut = .holdDefault
         var lock: Shortcut = .lockDefault
+        var pasteLast: Shortcut = .pasteLastDefault
         var suspended = false
         var dictating = false
     }
@@ -53,8 +56,8 @@ nonisolated final class HotkeyMonitor: @unchecked Sendable {
         self.handler = handler
     }
 
-    func update(hold: Shortcut, lock: Shortcut) {
-        config.withLock { $0.hold = hold; $0.lock = lock }
+    func update(hold: Shortcut, lock: Shortcut, pasteLast: Shortcut) {
+        config.withLock { $0.hold = hold; $0.lock = lock; $0.pasteLast = pasteLast }
     }
 
     func setSuspended(_ value: Bool) {
@@ -201,6 +204,17 @@ nonisolated final class HotkeyMonitor: @unchecked Sendable {
             if !isRepeat, !holdActive {
                 holdActive = true
                 emit(.holdDown)
+            }
+            swallowedKeyUps.insert(keyCode)
+            return nil
+        }
+
+        if cfg.pasteLast.matchesKeyDown(keyCode: keyCode, held: mods) {
+            if !isRepeat {
+                // e.g. fn + V while fn alone is the hold shortcut: the press of
+                // fn started a dictation that must be dropped first.
+                if holdActive, cfg.hold.isModifierOnly { emit(.holdInterrupted) }
+                emit(.pasteLast)
             }
             swallowedKeyUps.insert(keyCode)
             return nil

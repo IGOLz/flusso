@@ -12,6 +12,7 @@ struct ShortcutsSettingsView: View {
 
     private var isDefault: Bool {
         settings.holdShortcut == .holdDefault && settings.lockShortcut == .lockDefault
+            && settings.pasteLastShortcut == .pasteLastDefault
     }
 
     var body: some View {
@@ -25,19 +26,26 @@ struct ShortcutsSettingsView: View {
                 SettingRow(symbol: "mic.fill", color: .orange,
                            title: "Hold to dictate",
                            subtitle: "Hold, speak, and release to paste the text.") {
-                    ShortcutRecorder(.hold)
+                    ShortcutRecorder(.hold, reservesClearSpace: true)
                 }
                 RowDivider()
                 SettingRow(symbol: "lock.fill", color: .blue,
                            title: "Hands-free mode",
                            subtitle: "Press once to start dictating, again to stop.") {
-                    ShortcutRecorder(.lock)
+                    ShortcutRecorder(.lock, reservesClearSpace: true)
+                }
+                RowDivider()
+                SettingRow(symbol: "arrow.uturn.backward.circle.fill", color: .purple,
+                           title: "Paste last transcription",
+                           subtitle: "Pastes your latest dictation again, e.g. if it went into the wrong field.") {
+                    ShortcutRecorder(.pasteLast)
                 }
             } accessory: {
                 Button("Restore Defaults") {
                     withAnimation(.snappy) {
                         settings.holdShortcut = .holdDefault
                         settings.lockShortcut = .lockDefault
+                        settings.pasteLastShortcut = .pasteLastDefault
                     }
                 }
                 .buttonStyle(.link)

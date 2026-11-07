@@ -124,6 +124,10 @@ nonisolated struct Shortcut: Codable, Hashable, Sendable {
 
     static let holdDefault = Shortcut(keyCode: nil, modifiers: .function)
     static let lockDefault = Shortcut(keyCode: UInt16(kVK_Space), modifiers: .function)
+    /// ⌃ ⌘ V, like Wispr Flow.
+    static let pasteLastDefault = Shortcut(keyCode: UInt16(kVK_ANSI_V), modifiers: [.leftControl, .leftCommand])
+    /// A disabled shortcut.
+    static let none = Shortcut(keyCode: nil, modifiers: [])
 
     /// Whether a key-down of `keyCode` with `held` modifiers triggers this combo.
     func matchesKeyDown(keyCode code: UInt16, held: ModifierKeys) -> Bool {
