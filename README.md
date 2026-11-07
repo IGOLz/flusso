@@ -55,7 +55,14 @@ On macOS 14 and 15 everything works the same; the interface uses standard transl
 - **Instant start** (optional, Microphone settings): the microphone stays ready, so recording starts in under 1 ms and includes the 300 ms *before* you press the key.
 - **Parakeet Ultra** (Handy's recommended model): 25 European languages with automatic detection. It runs locally on the GPU; a few seconds of speech are transcribed in about 40 ms.
 - **Several languages**: speak any of the languages you selected and switch freely between them.
-- History of your transcriptions, filler-word removal, microphone choice, sounds and launch at login.
+- **Snippets**: say a short phrase ("my calendly link") and Flusso inserts a longer text instead: a link, an address, a signature.
+- **Learns from your corrections**: fix a misheard name right after dictating it and Flusso offers to add it to the dictionary.
+- **Smart formatting** (macOS 26, Apple Intelligence): "at 5, no wait, at 6" becomes "at 6", and spoken numbered lists become real lists. It runs on device, only when you correct yourself or number a list, and keeps your original text if the edit would change your words.
+- **Styles by app**: formal in Mail, casual or very casual (no capitals) in Messages. Only capitals and punctuation change.
+- **Skip silence**: the bundled [Silero VAD](https://github.com/snakers4/silero-vad) transcribes only the parts where you speak, so a dictation with no speech inserts nothing.
+- **History with audio**: replay a dictation or transcribe it again with another model. **Paste last transcription** (`⌃⌘V`) pastes your latest dictation again.
+- **Insert by pasting or typing** (for apps that block pasting), with an optional space after the text.
+- Lifetime statistics (words, time saved, streak), filler-word removal, microphone choice, sounds and launch at login.
 
 All shortcuts can be changed in **Shortcuts**.
 
@@ -77,7 +84,7 @@ Your voice never leaves the Mac: recording and transcription happen entirely on 
 - **Download a model** from [Hugging Face](https://huggingface.co/handy-computer), when you choose one. The file is checked against its SHA-256 checksum.
 - **Check for updates** on GitHub (`github.com/IGOLz/flusso/releases`), at launch and once a day unless you turn it off.
 
-Your history (the last 100 transcriptions) and models are stored in `~/Library/Application Support/Flusso`; settings and the dictionary in the app's preferences.
+Your history (the last 100 transcriptions, with their recordings unless you turn that off), statistics and models are stored in `~/Library/Application Support/Flusso`; settings, the dictionary and snippets in the app's preferences. Smart formatting uses Apple Intelligence's on-device model, never Private Cloud Compute. To learn from your corrections, Flusso reads the text field you dictated into for one minute after each dictation, through Accessibility; nothing it reads is stored unless you add a word.
 
 ## Build from source
 
@@ -135,4 +142,4 @@ Bug reports, ideas and pull requests are welcome: open an [issue](https://github
 
 ## License
 
-Flusso is released under the [MIT License](LICENSE). transcribe.cpp is MIT-licensed; the Parakeet models are CC-BY-4.0.
+Flusso is released under the [MIT License](LICENSE). transcribe.cpp and the bundled Silero VAD model are MIT-licensed; the Parakeet models are CC-BY-4.0.
