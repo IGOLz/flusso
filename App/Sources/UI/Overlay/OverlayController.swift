@@ -127,7 +127,7 @@ final class OverlayController {
         }
         withAnimation(showAnimation) { model.state = newState }
         updateMouseHandling()
-        if newState.isInteractive { startTicking() } else { stopTicking() }
+        if newState.isPill || newState.isInteractive { startTicking() } else { stopTicking() }
     }
 
     private var showAnimation: Animation {
@@ -163,10 +163,11 @@ final class OverlayController {
             x: (visible.midX - size.width / 2).rounded(),
             y: (visible.minY + OverlayLayout.screenBottomMargin - OverlayLayout.shapeBottomInset).rounded()
         )
-        panel.setFrame(NSRect(origin: origin, size: size), display: false)
+        let frame = NSRect(origin: origin, size: size)
+        if panel.frame != frame { panel.setFrame(frame, display: false) }
     }
 
-    // MARK: Mouse pass-through + toast countdown
+    // MARK: Screen tracking, mouse pass-through + toast countdown
 
     /// Screen rect of the visible, clickable shape (or nil if nothing is clickable).
     private func interactiveScreenRect() -> NSRect? {
@@ -208,6 +209,7 @@ final class OverlayController {
         let now = CACurrentMediaTime()
         let dt = min(now - lastTick, 0.1)
         lastTick = now
+        if model.state.isPill, let panel { position(panel) }
         updateMouseHandling()
 
         guard model.state.isToast, !model.toastHovered, !model.toastCopied else { return }
