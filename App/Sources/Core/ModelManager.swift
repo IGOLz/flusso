@@ -113,21 +113,55 @@ final class ModelManager {
 
     /// Called when a model becomes available on disk (after download+verify).
     @ObservationIgnored var onModelInstalled: ((ModelInfo) -> Void)?
+    @ObservationIgnored var onDirectoryChanged: (() -> Void)?
 
-    static var modelsDirectory: URL {
-        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        let dir = base.appendingPathComponent("Flusso/Models", isDirectory: true)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        return dir
+    private(set) var modelsDirectory: URL = ModelStorage.defaultDirectory
+    private(set) var isMovingModels = false
+
+    var isStorageBusy: Bool { isMovingModels || states.values.contains(where: \.isBusy) }
+
+    func changeDirectory(to directory: URL) async throws {
+        guard !isStorageBusy else { throw ModelError.storageBusy }
+        let destination = directory.resolvingSymlinksInPath().standardizedFileURL
+        guard destination.path != modelsDirectory.resolvingSymlinksInPath().standardizedFileURL.path else { return }
+        let bookmark = try destination.bookmarkData(options: [], includingResourceValuesForKeys: nil, relativeTo: nil)
+        let source = modelsDirectory
+        let filenames = ModelCatalog.all.map(\.filename)
+        isMovingModels = true
+        defer { isMovingModels = false }
+        let originals = try await Task.detached(priority: .userInitiated) {
+            try ModelStorage.copyModels(from: source, to: destination, filenames: filenames)
+        }.value
+        UserDefaults.standard.set(bookmark, forKey: "modelsDirectoryBookmark")
+        UserDefaults.standard.set(destination.path, forKey: "modelsDirectoryPath")
+        modelsDirectory = destination
+        for url in originals { try? FileManager.default.removeItem(at: url) }
+        refresh()
+        onDirectoryChanged?()
     }
 
     private init() {
+        let defaults = UserDefaults.standard
+        if let path = defaults.string(forKey: "modelsDirectoryPath") {
+            modelsDirectory = URL(fileURLWithPath: path, isDirectory: true)
+            if let data = defaults.data(forKey: "modelsDirectoryBookmark") {
+                var stale = false
+                if let resolved = try? URL(resolvingBookmarkData: data, options: [.withoutUI, .withoutMounting],
+                                           relativeTo: nil, bookmarkDataIsStale: &stale) {
+                    modelsDirectory = resolved
+                    defaults.set(resolved.path, forKey: "modelsDirectoryPath")
+                    if stale, let updated = try? resolved.bookmarkData(options: [], includingResourceValuesForKeys: nil, relativeTo: nil) {
+                        defaults.set(updated, forKey: "modelsDirectoryBookmark")
+                    }
+                }
+            }
+        }
         delegate.manager = self
         refresh()
     }
 
     func fileURL(for model: ModelInfo) -> URL {
-        Self.modelsDirectory.appendingPathComponent(model.filename)
+        modelsDirectory.appendingPathComponent(model.filename)
     }
 
     func isInstalled(_ model: ModelInfo) -> Bool {
@@ -147,7 +181,13 @@ final class ModelManager {
     }
 
     func download(_ model: ModelInfo) {
-        guard !state(for: model).isBusy, tasks[model.id] == nil else { return }
+        guard !isMovingModels, !state(for: model).isBusy, tasks[model.id] == nil else { return }
+        do {
+            try ModelStorage.prepare(modelsDirectory, create: UserDefaults.standard.string(forKey: "modelsDirectoryPath") == nil)
+        } catch {
+            states[model.id] = .failed("Model folder unavailable. Connect the disk or choose another folder in Settings › Models. \(error.localizedDescription)")
+            return
+        }
         Log.models.info("Downloading \(model.id) from \(model.downloadURL.absoluteString)")
         states[model.id] = .downloading(progress: 0, received: 0, total: model.sizeBytes)
         let task = session.downloadTask(with: model.downloadURL)
@@ -163,6 +203,7 @@ final class ModelManager {
     }
 
     func delete(_ model: ModelInfo) {
+        guard !isMovingModels else { return }
         try? FileManager.default.removeItem(at: fileURL(for: model))
         states[model.id] = .notDownloaded
     }
@@ -251,8 +292,10 @@ final class ModelManager {
 
 nonisolated enum ModelError: LocalizedError {
     case checksumMismatch
+    case storageBusy
     var errorDescription: String? {
         switch self {
+        case .storageBusy: "Wait for model downloads and transfers to finish before changing the folder."
         case .checksumMismatch: "The downloaded file is corrupted (checksum mismatch). Try again."
         }
     }

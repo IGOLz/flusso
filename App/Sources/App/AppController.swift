@@ -151,6 +151,13 @@ final class AppController {
             }
         }
 
+        models.onDirectoryChanged = { [weak self] in
+            guard let self else { return }
+            self.loadSelectedModel()
+            LocalFormatter.shared.unload()
+            self.updateFormatter()
+        }
+
         observeSettings()
         observePermissions()
         corrections.onCorrection = { word in AppController.shared.offerLearnedWord(word) }

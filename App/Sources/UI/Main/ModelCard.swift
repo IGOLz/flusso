@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// A transcription model with its download state and actions.
@@ -169,6 +170,7 @@ struct ModelActions: View {
                 }
             }
         }
+        .disabled(manager.isMovingModels)
         .animation(.snappy, value: manager.state(for: model))
         .onChange(of: manager.state(for: model)) { old, new in
             // Onboarding: as soon as the recommended model lands on disk, use it.
@@ -204,6 +206,67 @@ private struct FormatterStatusLabel: View {
                 .foregroundStyle(.red)
                 .font(.callout)
                 .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
+/// Shared by first-run setup and model settings.
+struct ModelStoragePicker: View {
+    private var manager = ModelManager.shared
+    @State private var errorMessage: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("Model folder", systemImage: "folder.fill")
+                .font(.headline)
+            Text(manager.modelsDirectory.path)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
+            Text("Choose any writable folder, including an external drive. Existing models will be moved here. Keep the drive connected while using Flusso.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack {
+                Button("Choose Folder…", action: choose)
+                    .glassButtonStyle()
+                    .disabled(manager.isStorageBusy)
+                Button("Show in Finder") {
+                    NSWorkspace.shared.activateFileViewerSelecting([manager.modelsDirectory])
+                }
+                .glassButtonStyle()
+                .disabled(manager.isMovingModels)
+                if manager.isMovingModels {
+                    ProgressView().controlSize(.small)
+                    Text("Moving models…").font(.callout)
+                }
+            }
+        }
+        .padding(18)
+        .cardSurface()
+        .alert("Couldn’t change the model folder", isPresented: Binding(
+            get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } }
+        )) {
+            Button("OK") { errorMessage = nil }
+        } message: {
+            Text(errorMessage ?? "")
+        }
+    }
+
+    private func choose() {
+        let panel = NSOpenPanel()
+        panel.title = "Choose the model folder"
+        panel.prompt = "Choose"
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.directoryURL = manager.modelsDirectory
+        guard panel.runModal() == .OK, let directory = panel.url else { return }
+        Task {
+            do { try await manager.changeDirectory(to: directory) }
+            catch { errorMessage = error.localizedDescription }
         }
     }
 }

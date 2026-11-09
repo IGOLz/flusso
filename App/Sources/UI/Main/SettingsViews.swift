@@ -301,6 +301,8 @@ struct ModelsSettingsView: View {
                      title: "Models",
                      description: "Models transcribe your voice right on your Mac, with no internet connection. You only need one.")
 
+            ModelStoragePicker()
+
             VStack(alignment: .leading, spacing: DS.headerSpacing) {
                 SectionTitle("Available")
                 VStack(spacing: 12) {
@@ -310,21 +312,6 @@ struct ModelsSettingsView: View {
                     }
                 }
             }
-
-            HStack(spacing: 10) {
-                Image(systemName: "folder.fill")
-                    .foregroundStyle(.secondary)
-                Text("Models are stored in Application Support › Flusso › Models.")
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Button("Show in Finder") {
-                    NSWorkspace.shared.activateFileViewerSelecting([ModelManager.modelsDirectory])
-                }
-                .glassButtonStyle()
-                .controlSize(.small)
-            }
-            .font(.callout)
-            .padding(.horizontal, 4)
         }
         .onAppear { manager.refresh() }
     }

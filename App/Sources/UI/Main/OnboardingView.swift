@@ -350,6 +350,7 @@ private struct ModelPage: View {
             PageHeader(systemImage: "arrow.down.circle.fill",
                        title: "Download the Model",
                        subtitle: "Speech recognition runs on your Mac. It just needs a one-time download.")
+            ModelStoragePicker()
             GlassCard {
                 ModelCard(model: model, compact: true)
             }
