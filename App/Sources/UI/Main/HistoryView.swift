@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// Every saved transcription, as a timeline grouped by day.
 struct HistoryView: View {
@@ -106,6 +107,7 @@ private struct HistoryRow: View {
     let item: HistoryItem
     @State private var hovering = false
     @State private var copied = false
+    @State private var audioError: String?
     private var playback = AudioPlayback.shared
     private var controller = AppController.shared
 
@@ -151,6 +153,8 @@ private struct HistoryRow: View {
                 if item.audioFile != nil {
                     HoverIconButton(symbol: isPlaying ? "stop.fill" : "play.fill",
                                     help: isPlaying ? "Stop" : "Play Recording") { playback.toggle(item) }
+                    HoverIconButton(symbol: "square.and.arrow.down", help: "Save Recording…") { saveRecording() }
+                        .disabled(HistoryStore.shared.isShowingSamples)
                     if isRetranscribing {
                         ProgressView()
                             .controlSize(.small)
@@ -183,10 +187,51 @@ private struct HistoryRow: View {
                 }
                 Button("Transcribe Again", systemImage: "arrow.clockwise") { retranscribe() }
                     .disabled(!controller.retranscribing.isEmpty || HistoryStore.shared.isShowingSamples)
+                Button("Save Recording…", systemImage: "square.and.arrow.down") { saveRecording() }
+                    .disabled(HistoryStore.shared.isShowingSamples)
+                Button("Show in Finder", systemImage: "folder") { showRecording() }
+                    .disabled(HistoryStore.shared.isShowingSamples)
             }
             Divider()
             Button("Delete", systemImage: "trash", role: .destructive) { delete() }
                 .disabled(HistoryStore.shared.isShowingSamples)
+        }
+        .alert("Couldn't Access Recording", isPresented: Binding(
+            get: { audioError != nil },
+            set: { if !$0 { audioError = nil } }
+        )) {
+            Button("OK", role: .cancel) { audioError = nil }
+        } message: {
+            Text(audioError ?? "")
+        }
+    }
+
+    private func saveRecording() {
+        guard let fileName = item.audioFile else { return }
+        let panel = NSSavePanel()
+        panel.title = "Save Recording"
+        panel.allowedContentTypes = [.wav]
+        panel.canCreateDirectories = true
+        let date = DateFormatter()
+        date.dateFormat = "yyyy-MM-dd_HH-mm-ss"
+        panel.nameFieldStringValue = "Flusso-\(date.string(from: item.date)).wav"
+        guard panel.runModal() == .OK, let destination = panel.url else { return }
+        do {
+            let audio = try Data(contentsOf: HistoryAudio.url(for: fileName))
+            try audio.write(to: destination, options: .atomic)
+        } catch {
+            audioError = error.localizedDescription
+        }
+    }
+
+    private func showRecording() {
+        guard let fileName = item.audioFile else { return }
+        let url = HistoryAudio.url(for: fileName)
+        do {
+            guard try url.checkResourceIsReachable() else { throw CocoaError(.fileNoSuchFile) }
+            NSWorkspace.shared.activateFileViewerSelecting([url])
+        } catch {
+            audioError = error.localizedDescription
         }
     }
 
