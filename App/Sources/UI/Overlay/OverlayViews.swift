@@ -231,7 +231,7 @@ struct ToastView: View {
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
-                Text("No text field selected")
+                Text("Text not inserted. Copy it?")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(.white)
                 Text(text)

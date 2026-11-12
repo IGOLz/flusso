@@ -27,8 +27,20 @@ struct InsertResult: @unchecked Sendable {
 
 enum InsertOutcome: Equatable {
     case pasted
-    /// Nothing editable had focus: the caller shows the "not pasted" toast.
+    /// No editable field, or the field did not accept the text.
     case noFocusedField
+}
+
+/// Only compare when the app exposes both the text and selection. A caret
+/// movement also counts: replacing selected text with itself is a valid paste.
+struct InsertionSnapshot: Equatable {
+    let value: String
+    let selection: NSRange
+
+    static func wasRejected(before: Self?, after: Self?) -> Bool {
+        guard let before, let after else { return false }
+        return before == after
+    }
 }
 
 /// Pastes text into the focused field of the frontmost app (clipboard +
@@ -89,11 +101,42 @@ final class TextInserter {
         if options.trailingSpace, let last = output.last, !last.isWhitespace {
             output += " "
         }
+        let before = field.flatMap(insertionSnapshot)
         switch options.method {
         case .paste: await paste(output, restoreClipboard: options.restoreClipboard)
         case .type: await type(output)
         }
+        if let field, before != nil {
+            // Slow apps may update their AX tree after handling the key event.
+            var rejected = false
+            for _ in 0..<5 {
+                try? await Task.sleep(for: .milliseconds(150))
+                rejected = InsertionSnapshot.wasRejected(before: before, after: insertionSnapshot(field))
+                if !rejected { break }
+            }
+            if rejected {
+                Log.paste.info("Focused field did not accept the text")
+                return InsertResult(outcome: .noFocusedField, field: nil)
+            }
+        }
         return InsertResult(outcome: .pasted, field: field)
+    }
+
+    private func insertionSnapshot(_ element: AXUIElement) -> InsertionSnapshot? {
+        AXUIElementSetMessagingTimeout(element, 0.25)
+        guard stringAttribute(element, kAXSubroleAttribute) != "AXSecureTextField" else { return nil }
+        // Avoid fetching entire documents on the main thread. Editors without
+        // a bounded, readable value keep the existing optimistic insertion.
+        var count: AnyObject?
+        guard AXUIElementCopyAttributeValue(element, kAXNumberOfCharactersAttribute as CFString, &count) == .success,
+              let count = count as? Int, count >= 0, count <= 32_768 else { return nil }
+        guard let value = stringAttribute(element, kAXValueAttribute) else { return nil }
+        var selected: AnyObject?
+        guard AXUIElementCopyAttributeValue(element, kAXSelectedTextRangeAttribute as CFString, &selected) == .success,
+              let selected, CFGetTypeID(selected) == AXValueGetTypeID() else { return nil }
+        var range = CFRange()
+        guard AXValueGetValue(selected as! AXValue, .cfRange, &range) else { return nil }
+        return InsertionSnapshot(value: value, selection: NSRange(location: range.location, length: range.length))
     }
 
     // MARK: - Focus inspection
@@ -139,6 +182,7 @@ final class TextInserter {
     }
 
     private func isEditable(_ element: AXUIElement) -> Bool {
+        if isExplicitlyReadOnly(element) { return false }
         let role = stringAttribute(element, kAXRoleAttribute) ?? ""
         let subrole = stringAttribute(element, kAXSubroleAttribute) ?? ""
         var enabled: AnyObject?
@@ -168,6 +212,7 @@ final class TextInserter {
     }
 
     private func isDefinitelyNotEditable(_ element: AXUIElement) -> Bool {
+        if isExplicitlyReadOnly(element) { return true }
         let role = stringAttribute(element, kAXRoleAttribute) ?? ""
         var enabled: AnyObject?
         if ["AXTextField", "AXTextArea", "AXComboBox", "AXSearchField"].contains(role),
@@ -180,6 +225,15 @@ final class TextInserter {
             "AXTable", "AXRow", "AXCell", "AXMenuItem", "AXMenuBarItem", "AXCheckBox", "AXRadioButton",
             "AXPopUpButton", "AXSlider", "AXTabGroup", "AXToolbar", "AXDisclosureTriangle", "AXBrowser",
         ].contains(role)
+    }
+
+    private func isExplicitlyReadOnly(_ element: AXUIElement) -> Bool {
+        var ancestor: AnyObject?
+        if AXUIElementCopyAttributeValue(element, "AXEditableAncestor" as CFString, &ancestor) == .success,
+           ancestor != nil { return false }
+        var editable: AnyObject?
+        return AXUIElementCopyAttributeValue(element, "AXEditable" as CFString, &editable) == .success
+            && (editable as? Bool) == false
     }
 
     /// Native AppKit/Catalyst apps always expose their focused element; for
