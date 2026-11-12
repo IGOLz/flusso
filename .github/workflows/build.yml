@@ -22,6 +22,13 @@ jobs:
       - name: Tools
         run: brew install xcodegen ninja
 
+      - name: Spoken number checks
+        run: |
+          mkdir -p build
+          xcrun swiftc -default-isolation MainActor App/Sources/Core/SpokenNumbers.swift \
+            Tests/SpokenNumbersChecks.swift -o build/spoken-numbers-checks
+          build/spoken-numbers-checks
+
       - name: Cache engine
         id: engine
         uses: actions/cache@v4

@@ -370,11 +370,12 @@ final class AppController {
         }
     }
 
-    /// Audio → text: transcription, cleanup and smart formatting.
+    /// Audio → text: transcription, cleanup, smart formatting and numeric digits.
     private func transcribeText(_ samples: [Float]) async throws -> String {
         let raw = try await engine.transcribe(samples, language: nil, skipSilence: settings.skipSilence)
         let cleaned = TextCleanup.clean(raw, removeFillers: settings.removeFillerWords)
-        return settings.smartFormatting ? await SmartFormatter.format(cleaned) : cleaned
+        let formatted = settings.smartFormatting ? await SmartFormatter.format(cleaned) : cleaned
+        return SpokenNumbers.normalize(formatted)
     }
 
     /// The app's style, then snippets and dictionary (after the style, so
