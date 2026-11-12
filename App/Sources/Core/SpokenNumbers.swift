@@ -42,15 +42,15 @@ enum SpokenNumbers {
         return words
     }()
 
-    static func normalize(_ text: String) -> String {
+    static func normalize(_ text: String, useGrammar: Bool = true) -> String {
         let all = tokens.matches(in: text, range: NSRange(text.startIndex..., in: text)).compactMap { match -> Token? in
             guard let range = Range(match.range, in: text) else { return nil }
             return Token(word: key(String(text[range])), range: range)
         }
         let protected = links.matches(in: text, range: NSRange(text.startIndex..., in: text)).compactMap { Range($0.range, in: text) }
-        let tagger = NLTagger(tagSchemes: [.lexicalClass])
-        tagger.string = text
-        tagger.setLanguage(.italian, range: text.startIndex..<text.endIndex)
+        let tagger = useGrammar ? NLTagger(tagSchemes: [.lexicalClass]) : nil
+        tagger?.string = text
+        tagger?.setLanguage(.italian, range: text.startIndex..<text.endIndex)
         var output = "", cursor = text.startIndex, i = 0
         while i < all.count {
             let token = all[i]
@@ -60,7 +60,8 @@ enum SpokenNumbers {
                 if language == .italian, token.word == "sei", isVerb(i, in: all, tagger: tagger) { continue }
                 if language == .italian, token.word == "uno", i + 1 < all.count,
                    value(all[i + 1].word, language: .italian) == nil,
-                   tagger.tag(at: token.range.lowerBound, unit: .word, scheme: .lexicalClass).0 == .determiner { continue }
+                   isArticle(before: all[i + 1].word)
+                    || tagger?.tag(at: token.range.lowerBound, unit: .word, scheme: .lexicalClass).0 == .determiner { continue }
                 if let number = parse(all, from: i, in: text, language: language),
                    best == nil || number.end > best!.end {
                     best = number
@@ -174,7 +175,7 @@ enum SpokenNumbers {
         return (i, (negative ? "-" : "") + result)
     }
 
-    private static func isVerb(_ i: Int, in tokens: [Token], tagger: NLTagger) -> Bool {
+    private static func isVerb(_ i: Int, in tokens: [Token], tagger: NLTagger?) -> Bool {
         // shortcut: "sei" is ambiguous in Italian. Use local grammar tagging,
         // with explicit numeric contexts; richer ambiguity needs semantic analysis.
         if tokens.count == 1 { return false }
@@ -184,6 +185,19 @@ enum SpokenNumbers {
         if ["numero", "numeri", "le", "alle", "dalle", "ai", "dai", "voglio", "sono", "erano"].contains(previous) { return false }
         if ["euro", "dollari", "centesimi", "chilometri", "metri", "centimetri", "millimetri", "chili", "grammi",
             "litri", "ore", "minuti", "secondi", "giorni", "settimane", "mesi", "anni", "percento", "virgola"].contains(next) { return false }
-        return tagger.tag(at: tokens[i].range.lowerBound, unit: .word, scheme: .lexicalClass).0 == .verb
+        // Grammar assets can be absent on a clean Mac. Keep common verb contexts
+        // independently of the tagger, which may then return no lexical class.
+        if previous == "tu" { return true }
+        if ["un", "uno", "una", "il", "lo", "la", "l", "di", "da", "in", "con", "per", "a",
+            "molto", "davvero", "troppo", "sempre", "ancora", "gia", "mai", "anche", "qui", "qua", "li", "la",
+            "pronto", "pronta", "sicuro", "sicura", "bravo", "brava", "stato", "stata", "arrivato", "arrivata",
+            "gentile", "felice", "stanco", "stanca", "riuscito", "riuscita", "daccordo"].contains(next) { return true }
+        return tagger?.tag(at: tokens[i].range.lowerBound, unit: .word, scheme: .lexicalClass).0 == .verb
+    }
+
+    private static func isArticle(before word: String) -> Bool {
+        // Italian "uno" precedes z, gn, ps, pn, x, y and s + consonant.
+        if ["z", "gn", "ps", "pn", "x", "y"].contains(where: word.hasPrefix) { return true }
+        return word.hasPrefix("s") && word.count > 1 && !"aeiou".contains(word[word.index(after: word.startIndex)])
     }
 }

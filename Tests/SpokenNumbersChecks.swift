@@ -46,6 +46,8 @@ struct SpokenNumbersChecks {
             let result = SpokenNumbers.normalize(input)
             assert(result == expected, "\(input)\nExpected: \(expected)\nActual:   \(result)")
             assert(SpokenNumbers.normalize(result) == result, "Not idempotent: \(result)")
+            let withoutGrammar = SpokenNumbers.normalize(input, useGrammar: false)
+            assert(withoutGrammar == expected, "Without grammar assets: \(input)\nExpected: \(expected)\nActual: \(withoutGrammar)")
         }
         // Canonical spellings cover elisions, accents, hyphens and compound numbers.
         let formatter = NumberFormatter()
